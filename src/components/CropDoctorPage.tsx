@@ -14,7 +14,9 @@ import {
   HelpCircle,
   Satellite,
   CloudRain,
-  Droplet
+  Droplet,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 import { 
@@ -200,7 +202,6 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
   });
 
   const [farmContext, setFarmContext] = useState<FarmContext | null>(null);
-  const [selectedCropHint, setSelectedCropHint] = useState<string>('Wheat');
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -209,6 +210,23 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
     { name: 'Plot A Flag Leaf', condition: 'Yellow Stripe Rust', time: '10:15 AM', state: 'DEMO' },
     { name: 'Plot B Mustard Canopy', condition: 'Mild Aphid Colony', time: 'Yesterday', state: 'DEMO' }
   ]);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+
+  const handleSpeakPrescription = () => {
+    if (!('speechSynthesis' in window)) return;
+    if (isPlayingAudio) {
+      window.speechSynthesis.cancel();
+      setIsPlayingAudio(false);
+      return;
+    }
+    const text = `Identified plant: ${activeDiagnosis.crop_name}. Condition: ${activeDiagnosis.disease_name}. Severity: ${activeDiagnosis.severity}. Recommended solutions: ${activeDiagnosis.recommended_actions.join('. ')}. Prevention guidelines: ${activeDiagnosis.prevention.join('. ')}.`;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.95;
+    utterance.onend = () => setIsPlayingAudio(false);
+    utterance.onerror = () => setIsPlayingAudio(false);
+    setIsPlayingAudio(true);
+    window.speechSynthesis.speak(utterance);
+  };
 
   // Load unified farm context on mount
   useEffect(() => {
@@ -242,7 +260,7 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
 
     try {
       setUploadProgress(50);
-      const diagnosis = await diagnoseCropImage(file, selectedCropHint);
+      const diagnosis = await diagnoseCropImage(file);
       setUploadProgress(90);
 
       setTimeout(async () => {
@@ -264,7 +282,7 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
 
         // Refresh farm context with latest diagnosis
         try {
-          const freshCtx = await fetchFarmContext(25.92, 81.99, selectedCropHint);
+          const freshCtx = await fetchFarmContext(25.92, 81.99, diagnosis.crop_name);
           setFarmContext(freshCtx);
         } catch {
           // ignore
@@ -367,22 +385,15 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Crop Selector Hint */}
-          <select
-            value={selectedCropHint}
-            onChange={(e) => setSelectedCropHint(e.target.value)}
-            className="px-3 py-2 rounded-full bg-black/60 border border-white/15 text-xs text-neutral-200 outline-none cursor-pointer"
-          >
-            <option value="Wheat">🌾 Wheat (गेंहू)</option>
-            <option value="Mustard">🌼 Mustard (सरसों)</option>
-            <option value="Rice">🍚 Paddy (धान)</option>
-            <option value="Tomato">🍅 Tomato (टमाटर)</option>
-            <option value="Cotton">🌱 Cotton (कपास)</option>
-          </select>
+          {/* Autonomous Plant ID Badge */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-xs font-mono text-emerald-300 shadow-inner">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Autonomous Plant Identification</span>
+          </div>
 
           {/* Real Upload Button */}
-          <label className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition-all cursor-pointer shadow-lg">
-            <Upload className="w-4 h-4" />
+          <label className="flex items-center gap-2.5 px-6 py-3 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-[0_0_25px_rgba(16,185,129,0.45)] hover:scale-105 active:scale-95">
+            <Upload className="w-4 h-4 text-black stroke-[2.5]" />
             <span>Upload Leaf Photo</span>
             <input 
               type="file" 
@@ -569,12 +580,27 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
                 </strong>
               </span>
             </div>
-            <h2 className="font-display font-extrabold text-2xl text-[#ECE8DD] mt-1">
+
+            {/* Identified Plant Species Banner */}
+            <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-[#0b3320] to-black/70 border-2 border-emerald-500/40 shadow-lg">
+              <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                IDENTIFIED PLANT SPECIES
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xl font-extrabold text-white">{activeDiagnosis.crop_name}</span>
+                <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  {(activeDiagnosis.confidence * 100).toFixed(0)}% AI Match
+                </span>
+              </div>
+            </div>
+
+            <h2 className="font-display font-extrabold text-2xl text-[#ECE8DD] mt-4">
               {activeDiagnosis.disease_name}
             </h2>
             <div className="grid grid-cols-2 gap-2 text-xs font-mono text-neutral-300 mt-2 p-3 rounded-xl bg-black/40 border border-white/5">
               <div>
-                <span className="text-neutral-500 block text-[10px]">CROP (HOST):</span>
+                <span className="text-neutral-500 block text-[10px]">CROP HOST:</span>
                 <span className="text-white font-semibold">{activeDiagnosis.crop_name}</span>
               </div>
               <div>
@@ -617,15 +643,20 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
           )}
 
           {/* Recommended Actions (Dual Prescription) */}
-          <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 space-y-2">
+          <div className="p-4 rounded-2xl bg-emerald-950/50 border border-emerald-500/40 space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-emerald-300 flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                Prescribed Actions (Dual Biological & Chemical Protocol)
+                Prescribed Solutions (ICAR / CIBRC Dual Protocol)
               </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900/50 px-2 py-0.5 rounded-full">
-                ICAR Standard
-              </span>
+              <button
+                onClick={handleSpeakPrescription}
+                className="flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-400/40 text-emerald-200 hover:text-white text-[11px] font-mono cursor-pointer transition-colors shadow-sm"
+                title="Listen to Treatment Advisory in Vernacular"
+              >
+                {isPlayingAudio ? <VolumeX className="w-3.5 h-3.5 text-amber-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                <span>{isPlayingAudio ? 'Stop Audio' : 'Listen Solution'}</span>
+              </button>
             </div>
             <ul className="text-xs text-neutral-200/90 space-y-2">
               {activeDiagnosis.recommended_actions.map((remedy, i) => (

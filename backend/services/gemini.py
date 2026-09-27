@@ -157,38 +157,41 @@ def parse_and_validate_crop_doctor_json(raw_text: str, crop_hint: str) -> Dict[s
 
 def analyze_crop_image_with_gemini(
     image_bytes: bytes,
-    crop_hint: str = "Wheat",
+    crop_hint: Optional[str] = None,
     mime_type: str = "image/jpeg"
 ) -> Dict[str, Any]:
     """
     Multimodal Gemini Vision agricultural pathology diagnostic system.
-    Returns 12 structured fields:
-    crop_name, leaf_name, health_status, disease_name, confidence, severity,
-    symptoms, possible_causes, recommended_actions, prevention, image_quality,
-    needs_expert_confirmation.
+    Automatically identifies plant species, leaf site, health status,
+    specific disease pathology, severity, confidence, biological solutions,
+    and chemical solutions compliant with ICAR / CIBRC guidelines.
     
-    If Gemini fails, uses calibrated demo fallback clearly labeled DEMO.
+    If Gemini fails or is unconfigured, uses calibrated demo fallback clearly labeled DEMO.
     Never presents fallback as live AI analysis.
     Updates the unified FarmContextEngine.
     """
     now_str = datetime.now().strftime("%d %b %Y, %H:%M IST")
 
-    prompt = f"""
-You are an expert plant pathologist, agronomist, and computer vision diagnostician for Indian agriculture.
-Carefully analyze this uploaded crop/leaf image.
-Farmer Crop Context / Hint: {crop_hint}.
+    hint_str = f"Farmer Crop Context / Hint: {crop_hint}." if crop_hint else "Farmer has not specified the crop: Automatically inspect the leaf morphology and identify the exact plant species."
 
-Perform a detailed pathological and foliar inspection:
-1. Identify the crop species (common name and botanical binomial name).
-2. Identify the specific leaf/foliar site (e.g., Flag leaf, Lower mature foliage, Petiole, Leaf blade).
+    prompt = f"""
+You are an expert plant pathologist, agronomist, and computer vision diagnostician for Indian and global agriculture.
+Carefully analyze this uploaded plant/crop leaf photograph.
+{hint_str}
+
+Perform a comprehensive foliar pathology inspection:
+1. FIRST, accurately identify the plant/crop species (e.g. "Wheat (Triticum aestivum L.)", "Tomato (Solanum lycopersicum)", "Basmati Rice (Oryza sativa)", "Mustard (Brassica juncea)", "Cotton (Gossypium)", "Potato (Solanum tuberosum)", etc.).
+2. Identify the specific foliar site (e.g., Flag leaf, Lower mature foliage, Petiole, Leaf blade, Margin).
 3. Determine overall health status ("Healthy", "Diseased", "Pest Infested", "Nutrient Deficient", "Physiological Stress").
-4. Identify the specific disease/condition (e.g., Yellow Stripe Rust (Puccinia striiformis), Early Blight, Healthy Canopy).
+4. Identify the specific condition/disease (e.g., Yellow Stripe Rust (Puccinia striiformis), Early Blight (Alternaria solani), Leaf Curl Virus, Nitrogen Deficiency, Optimal Healthy Canopy).
 5. Diagnostic confidence (0.00 to 1.00).
 6. Severity classification ("None", "Low", "Medium", "High", "Critical").
 7. Observable symptoms visible on the leaf surface.
 8. Possible biological, fungal, insect, or environmental causes.
-9. Recommended actions (provide actionable dual prescriptions: biological/organic protocols and targeted conventional interventions with dosages per acre compliant with ICAR / CIBRC standards).
-10. Proactive prevention guidelines (cultural practices, row spacing, resistant seed varieties).
+9. Recommended actions: Provide actionable, comprehensive dual solutions:
+   - Biological/Organic Protocol: Eco-friendly remedies (e.g. Neem Seed Kernel Extract NSKE, Trichoderma viride, Jeevamrit, copper bio-formulations with dilution and timing).
+   - Targeted Conventional Chemical Protocol: Specific approved active ingredients with exact per-acre dosages compliant with ICAR / CIBRC standards.
+10. Proactive prevention guidelines (cultural practices, canopy aeration, resistant cultivars).
 11. Image quality assessment ("High", "Good", "Adequate", "Blurry", "Sub-optimal Lighting").
 12. Whether expert KVK/agronomist confirmation is needed (boolean: true if High/Critical severity, uncertain, or rare).
 
@@ -278,8 +281,9 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
 
     # 3. Explicitly Labeled DEMO Fallback
     # Never presented as live AI analysis
+    fallback_crop = f"{crop_hint} (Triticum aestivum L.)" if crop_hint else "Sharbati Wheat (Triticum aestivum L.)"
     demo_fallback = {
-        "crop_name": f"{crop_hint} (Triticum aestivum L.)",
+        "crop_name": fallback_crop,
         "leaf_name": "Flag Leaf (Upper Canopy)",
         "health_status": "Diseased",
         "disease_name": "Yellow Stripe Rust (Puccinia striiformis)",
@@ -307,7 +311,7 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
         "image_quality": "Good",
         "needs_expert_confirmation": False,
         # Backward compatibility
-        "crop_identified": f"{crop_hint} (Triticum aestivum L.)",
+        "crop_identified": fallback_crop,
         "condition": "Yellow Stripe Rust (Puccinia striiformis)",
         "is_healthy": False,
         "biological_treatment": [

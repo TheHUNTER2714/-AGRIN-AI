@@ -21,7 +21,8 @@ import {
   ShieldCheck,
   BarChart3,
   Wifi,
-  WifiOff
+  WifiOff,
+  PlusCircle
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 
@@ -51,6 +52,7 @@ interface NavBarProps {
   isOffline: boolean;
   onOpenConsent: () => void;
   onOpenImpact: () => void;
+  onOpenRegisterLand?: () => void;
   alertCount: number;
 }
 
@@ -66,6 +68,7 @@ export const NavBar: React.FC<NavBarProps> = ({
   isOffline,
   onOpenConsent,
   onOpenImpact,
+  onOpenRegisterLand,
   alertCount,
 }) => {
   const [scrolled, setScrolled] = useState(false);
@@ -163,8 +166,24 @@ export const NavBar: React.FC<NavBarProps> = ({
           })}
         </div>
 
-        {/* Right Action Tools: Simple Mode Toggle, Offline Sim, Consent, Impact, Voice, Audio, Alerts */}
+        {/* Right Action Tools: Register Land, Simple Mode Toggle, Offline Sim, Consent, Impact, Voice, Audio, Alerts */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Register New Land Action */}
+          {onOpenRegisterLand && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onOpenRegisterLand();
+              }}
+              title="Register New Land Parcel (Khasra & GPS)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-600/90 to-teal-600/90 hover:from-emerald-500 hover:to-teal-500 text-white font-mono text-[11px] font-bold shadow-[0_0_15px_rgba(16,185,129,0.35)] border border-emerald-400/60 cursor-pointer transition-all hover:scale-102"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-emerald-200" />
+              <span className="hidden sm:inline">+ Register Land</span>
+              <span className="sm:hidden">+ Land</span>
+            </button>
+          )}
+
           {/* Simple Mode vs Expert Mode Switch */}
           <button
             onClick={() => {
@@ -288,6 +307,20 @@ export const NavBar: React.FC<NavBarProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="xl:hidden fixed top-16 left-4 right-4 bg-[#05130D]/95 backdrop-blur-2xl border border-emerald-500/30 rounded-2xl p-4 shadow-2xl flex flex-col gap-1 pointer-events-auto max-h-[75vh] overflow-y-auto">
+          {onOpenRegisterLand && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                setMobileMenuOpen(false);
+                onOpenRegisterLand();
+              }}
+              className="flex items-center gap-3 px-4 py-3 mb-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-mono text-xs font-bold border border-emerald-400/50 shadow-lg"
+            >
+              <PlusCircle className="w-4 h-4 text-emerald-200" />
+              <span>+ Register New Land Parcel</span>
+            </button>
+          )}
+
           {primaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;

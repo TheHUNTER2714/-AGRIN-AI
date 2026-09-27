@@ -22,18 +22,18 @@ body {
 
 /* Glassmorphism Classes */
 .glass-panel {
-  background: rgba(10, 38, 24, 0.55);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  background: rgba(6, 24, 15, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  box-shadow: 0 10px 35px 0 rgba(0, 0, 0, 0.55);
 }
 
 .glass-panel-subtle {
-  background: rgba(16, 75, 46, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(8, 32, 20, 0.70);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(16, 185, 129, 0.14);
 }
 
 .glass-card-interactive {

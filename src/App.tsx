@@ -21,6 +21,14 @@ import { FarmerSimpleMode } from './components/FarmerSimpleMode';
 import { FarmerConsentCenterModal } from './components/FarmerConsentCenterModal';
 import { ImpactDashboardModal } from './components/ImpactDashboardModal';
 import { ExplainableWhyModal, type ExplainableWhyData } from './components/ExplainableWhyModal';
+import { NewLandRegistrationModal } from './components/NewLandRegistrationModal';
+import { 
+  type RegisteredFarm, 
+  fetchRegisteredFarms, 
+  saveFarmToLocal, 
+  getFarmsFromLocal, 
+  getDefaultFarms 
+} from './services/api';
 import { soundFx } from './utils/audio';
 import { 
   WifiOff, 
@@ -38,6 +46,28 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [voiceAssistantOpen, setVoiceAssistantOpen] = useState(false);
+
+  // Land Parcel Management State
+  const [isLandModalOpen, setIsLandModalOpen] = useState(false);
+  const [registeredFarms, setRegisteredFarms] = useState<RegisteredFarm[]>(() => {
+    const local = getFarmsFromLocal();
+    return local.length > 0 ? local : getDefaultFarms();
+  });
+  const [activeFarm, setActiveFarm] = useState<RegisteredFarm | null>(() => {
+    const local = getFarmsFromLocal();
+    const defaults = getDefaultFarms();
+    return local[0] || defaults[0] || null;
+  });
+
+  // Sync farms from backend registry
+  React.useEffect(() => {
+    fetchRegisteredFarms().then((farms) => {
+      if (farms && farms.length > 0) {
+        setRegisteredFarms(farms);
+        setActiveFarm((prev) => prev || farms[0]);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Feature 8: Simple Mode vs Expert Mode
   const [isSimpleMode, setIsSimpleMode] = useState(false);
@@ -336,6 +366,10 @@ export const App: React.FC = () => {
           soundFx.playClick();
           setImpactModalOpen(true);
         }}
+        onOpenRegisterLand={() => {
+          soundFx.playClick();
+          setIsLandModalOpen(true);
+        }}
         alertCount={alerts.filter((a) => a.severity === 'high' || a.severity === 'medium').length}
       />
 
@@ -373,6 +407,18 @@ export const App: React.FC = () => {
       <ImpactDashboardModal
         isOpen={impactModalOpen}
         onClose={() => setImpactModalOpen(false)}
+      />
+
+      {/* New Land Registration Modal (4-step real-data parcel intake) */}
+      <NewLandRegistrationModal
+        isOpen={isLandModalOpen}
+        onClose={() => setIsLandModalOpen(false)}
+        onLandRegistered={(newFarm) => {
+          saveFarmToLocal(newFarm);
+          setRegisteredFarms((prev) => [newFarm, ...prev.filter((f) => f.farm_id !== newFarm.farm_id)]);
+          setActiveFarm(newFarm);
+          setActiveTab('satellite');
+        }}
       />
 
       {/* Main Content Router with Cinematic Smooth Transitions */}
@@ -424,8 +470,15 @@ export const App: React.FC = () => {
                     />
                   )}
 
-                  {/* Feature 3: Satellite Page with Farm Time Machine */}
-                  {activeTab === 'satellite' && <SatellitePage />}
+                  {/* Feature 3: Satellite Page with Real Satellite Mode & Farm Cadastre */}
+                  {activeTab === 'satellite' && (
+                    <SatellitePage 
+                      onOpenRegisterModal={() => setIsLandModalOpen(true)}
+                      registeredFarms={registeredFarms}
+                      activeFarm={activeFarm}
+                      onSelectFarm={(farm) => setActiveFarm(farm)}
+                    />
+                  )}
 
                   {/* Crop Doctor ViT Diagnostics */}
                   {activeTab === 'crop-doctor' && (

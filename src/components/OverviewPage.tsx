@@ -182,7 +182,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   soundFx.playClick();
                   onNavigateToTab('dashboard');
                 }}
-                className="group relative flex items-center gap-3 px-7 py-4 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-black font-semibold text-sm tracking-wide shadow-[0_0_35px_rgba(16,185,129,0.4)] transition-all cursor-pointer hover:scale-105"
+                className="group relative flex items-center gap-3 px-7 py-4 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-black font-bold text-sm tracking-wide shadow-[0_0_35px_rgba(16,185,129,0.55)] transition-all cursor-pointer hover:scale-105"
               >
                 <span>Launch Farmer Command Center</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -194,7 +194,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   const el = document.getElementById('product-story');
                   el?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex items-center gap-2 px-6 py-4 rounded-full glass-panel hover:border-emerald-500/40 text-[#ECE8DD] hover:text-emerald-300 text-sm font-medium transition-all cursor-pointer"
+                className="flex items-center gap-2 px-6 py-4 rounded-full bg-[#072015]/95 hover:bg-[#0c3322] border-2 border-emerald-500/50 hover:border-emerald-400 text-white hover:text-emerald-300 text-sm font-semibold shadow-[0_4px_25px_rgba(0,0,0,0.6)] backdrop-blur-xl transition-all cursor-pointer hover:scale-105"
               >
                 <span>Explore Architecture Story</span>
                 <ChevronRight className="w-4 h-4 text-emerald-400" />
@@ -205,7 +205,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
                   soundFx.playClick();
                   onNavigateToTab('crop-doctor');
                 }}
-                className="flex items-center gap-2 px-5 py-4 rounded-full glass-panel-subtle hover:border-emerald-500/30 text-emerald-300 text-sm font-medium transition-all cursor-pointer"
+                className="flex items-center gap-2 px-6 py-4 rounded-full bg-[#0a2e1d]/90 hover:bg-[#0f442b] border-2 border-emerald-400/50 hover:border-emerald-300 text-emerald-200 hover:text-white text-sm font-semibold shadow-[0_4px_25px_rgba(0,0,0,0.6)] backdrop-blur-xl transition-all cursor-pointer hover:scale-105"
               >
                 <Stethoscope className="w-4 h-4 text-emerald-400" />
                 <span>AI Crop Doctor</span>
@@ -215,22 +215,24 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({
         </div>
 
         {/* Hero Bottom Telemetry Ribbon */}
-        <div className="max-w-7xl mx-auto w-full pt-8 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-          <div>
-            <span className="text-neutral-400 block">SATELLITE CADENCE</span>
-            <span className="text-emerald-300 font-semibold">Every 48 Hours (Sentinel-2)</span>
-          </div>
-          <div>
-            <span className="text-neutral-400 block">NDVI PRECISION</span>
-            <span className="text-emerald-300 font-semibold">10-Meter Pixel Grid</span>
-          </div>
-          <div>
-            <span className="text-neutral-400 block">REGENERATIVE ACCRUAL</span>
-            <span className="text-emerald-300 font-semibold">3.7 Tonnes CO2e/Ha</span>
-          </div>
-          <div>
-            <span className="text-neutral-400 block">VERNACULAR NLP</span>
-            <span className="text-emerald-300 font-semibold">12 Indic Languages</span>
+        <div className="max-w-7xl mx-auto w-full pt-8 border-t border-white/10">
+          <div className="bg-[#05150E]/85 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-emerald-500/30 shadow-[0_10px_30px_rgba(0,0,0,0.5)] grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+            <div>
+              <span className="text-neutral-300 font-semibold block text-[11px] uppercase tracking-wider">SATELLITE CADENCE</span>
+              <span className="text-emerald-400 font-bold text-sm block mt-0.5">Every 48 Hours (Sentinel-2)</span>
+            </div>
+            <div>
+              <span className="text-neutral-300 font-semibold block text-[11px] uppercase tracking-wider">NDVI PRECISION</span>
+              <span className="text-emerald-400 font-bold text-sm block mt-0.5">10-Meter Pixel Grid</span>
+            </div>
+            <div>
+              <span className="text-neutral-300 font-semibold block text-[11px] uppercase tracking-wider">REGENERATIVE ACCRUAL</span>
+              <span className="text-emerald-400 font-bold text-sm block mt-0.5">3.7 Tonnes CO2e/Ha</span>
+            </div>
+            <div>
+              <span className="text-neutral-300 font-semibold block text-[11px] uppercase tracking-wider">VERNACULAR NLP</span>
+              <span className="text-emerald-400 font-bold text-sm block mt-0.5">12 Indic Languages</span>
+            </div>
           </div>
         </div>
       </section>

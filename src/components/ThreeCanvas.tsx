@@ -29,14 +29,20 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({ mode = 'hero' }) => {
     const worldGroup = new THREE.Group();
     scene.add(worldGroup);
 
+    // Offset globe to the right side on desktop so hero text is 100% legible
+    if (mode === 'hero') {
+      const isDesktop = width > 900;
+      worldGroup.position.set(isDesktop ? 2.8 : 0, isDesktop ? 0.2 : -0.6, 0);
+    }
+
     // 1. Digital Wireframe Globe
     const globeRadius = mode === 'satellite' ? 3.2 : 3.0;
     const globeGeometry = new THREE.SphereGeometry(globeRadius, 36, 36);
     const globeMaterial = new THREE.MeshBasicMaterial({
-      color: 0x0A2618,
+      color: 0x10B981,
       wireframe: true,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.16,
     });
     const globe = new THREE.Mesh(globeGeometry, globeMaterial);
     worldGroup.add(globe);
@@ -205,6 +211,10 @@ export const ThreeCanvas: React.FC<ThreeCanvasProps> = ({ mode = 'hero' }) => {
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (mode === 'hero') {
+        const isDesktop = w > 900;
+        worldGroup.position.set(isDesktop ? 2.8 : 0, isDesktop ? 0.2 : -0.6, 0);
+      }
     };
 
     window.addEventListener('resize', handleResize);

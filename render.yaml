@@ -1,0 +1,43 @@
+services:
+  # ===================================================
+  # 1. AgriN AI FastAPI Backend Microservice
+  # ===================================================
+  - type: web
+    name: agrin-ai-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: EARTH_ENGINE_PROJECT
+        sync: false
+      - key: EARTH_ENGINE_SERVICE_ACCOUNT
+        sync: false
+
+  # ===================================================
+  # 2. AgriN AI React + Vite Frontend Web App
+  # ===================================================
+  - type: web
+    name: agrin-ai-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: "./dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: agrin-ai-backend
+          property: host

@@ -286,41 +286,111 @@ This compiles TypeScript and outputs a minified, production-ready bundle into th
 
 ---
 
+## 💻 How to Run Locally
+
+### 1. Prerequisites
+- **Node.js**: v18+ (tested on Node v20/v22)
+- **Python**: v3.10+ (tested on Python 3.11/3.14)
+- **Google Gemini API Key**: Free tier from [Google AI Studio](https://aistudio.google.com/)
+
+### 2. Backend Setup & Startup
+In your first terminal:
+```bash
+# 1. Navigate to the project root
+cd /path/to/Agrinet
+
+# 2. (Optional) Create and activate virtual environment
+python -m venv venv
+# Windows:
+.\venv\Scripts\activate
+# Linux/Mac:
+source venv/bin/activate
+
+# 3. Install Python dependencies
+pip install -r backend/requirements.txt
+
+# 4. Create your backend environment file
+# Copy .env.example to backend/.env
+# Add your GEMINI_API_KEY=your_key_here
+
+# 5. Run backend verification tests (11 automated tests)
+python -m backend.test_pipeline
+
+# 6. Start the FastAPI backend server
+python -m uvicorn backend.main:app --reload --port 8000
+```
+Backend API will be live at: `http://localhost:8000` (Interactive docs at `http://localhost:8000/docs`).
+
+### 3. Frontend Setup & Startup
+In your second terminal:
+```bash
+# 1. Install frontend packages
+npm install
+
+# 2. Start the Vite development server
+npm run dev
+```
+Open your browser at: `http://localhost:5173`
+
+---
+
 ## ☁️ How to Deploy on Render
 
-AGRIN AI can be deployed on Render as a **Web Service** (serving FastAPI backend + React static build) or as two services:
+AGRIN AI is fully equipped with an automated `render.yaml` Blueprint specification for seamless deployment on Render.
 
-### Option A: Full-Stack Web Service (Recommended)
-1. In [Render Dashboard](https://dashboard.render.com/), click **New +** ➔ **Web Service**.
-2. Connect your GitHub repository: `TheHUNTER2714/-AGRIN-AI` (Branch: `main-2`).
-3. Set environment settings:
-   - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r backend/requirements.txt && npm install && npm run build`
+### Option 1: Render Blueprint (1-Click Deployment - Recommended)
+1. Fork or push this repository to GitHub: `https://github.com/TheHUNTER2714/-AGRIN-AI` (Branch: `main-2`).
+2. Log in to [Render Dashboard](https://dashboard.render.com/).
+3. Click **New +** ➔ **Blueprint**.
+4. Connect the repository `TheHUNTER2714/-AGRIN-AI`.
+5. Render will automatically parse `render.yaml` and configure:
+   - **`agrin-ai-backend`**: Python FastAPI Web Service running `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`.
+   - **`agrin-ai-frontend`**: High-performance Static Site built with `npm run build` and published from `./dist`.
+6. Fill in your `GEMINI_API_KEY` under Environment Variables and click **Apply**.
+
+---
+
+### Option 2: Manual Render Setup
+
+#### A. Backend Web Service:
+1. In Render, select **New +** ➔ **Web Service**.
+2. Connect your GitHub repository (branch `main-2`).
+3. Set configuration:
+   - **Name**: `agrin-ai-backend`
+   - **Language**: `Python`
+   - **Build Command**: `pip install -r backend/requirements.txt`
    - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
-4. Add Environment Variables:
+4. In **Environment Variables**:
    - `GEMINI_API_KEY`: *(Your Google AI Studio Gemini API Key)*
+   - `CORS_ORIGINS`: `*`
+   - `PYTHON_VERSION`: `3.11.9`
 
-### Option B: Static Site (React Frontend with Calibrated Fallbacks)
-1. In Render Dashboard, click **New +** ➔ **Static Site**.
-2. Connect repository (Branch: `main-2`).
-3. Build Command: `npm run build`
-4. Publish Directory: `dist`
-*(The frontend includes robust fallbacks with calibrated models for offline judging).*
+#### B. Frontend Static Site:
+1. In Render, select **New +** ➔ **Static Site**.
+2. Connect your GitHub repository (branch `main-2`).
+3. Set configuration:
+   - **Name**: `agrin-ai-frontend`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+4. In **Environment Variables**:
+   - `VITE_API_URL`: `https://agrin-ai-backend.onrender.com` (use your deployed backend URL)
+5. In **Redirects / Rewrites**:
+   - Source: `/*` ➔ Destination: `/index.html` (Action: `Rewrite`)
 
 ---
 
 ## 🎯 10-Step Judge Evaluation Script (100% Working Live Demo)
 
-1. **Load Demo Farm**: Click `LOAD DEMO FARM` button in the top navigation bar to populate **Ayush Farm (Pratapgarh, UP — 14.2 ha, Sharbati Wheat)**.
-2. **Sentinel-2 Satellite**: Navigate to **Satellite**. View the **Latest available Sentinel-2 observation** (Band 8/4 NDVI: 0.78, NDWI: 0.32, Cloud cover: 4.2%). Scrub the 6-pass Farm Time Machine.
-3. **Live Weather**: Navigate to **Weather**. View live Open-Meteo operational Doppler radar observations with real-time temperature, precipitation probability, and Gemini agricultural interpretations.
-4. **AI Crop Doctor**: Navigate to **Crop Doctor**. Upload a leaf photo or pick a sample specimen (e.g. *Yellow Rust*). Watch the 4-stage pipeline (Vision analysis ➔ severity ➔ symptoms ➔ treatments ➔ prevention) with field agronomist disclaimer.
-5. **AI Risk Engine**: In **Dashboard**, see the composite **Crop Risk Score (67 / 100)** with factor breakdowns (Water Stress 28%, Disease 18%, Weather 12%, Soil 9%).
-6. **Explainable AI**: Click **"Why 67?"** to inspect the data sources (Sentinel-2, Open-Meteo, ICAR Soil Health Card, Crop Vision).
+1. **New Land Registration**: Click the glowing **`+ Register Land`** button in the header or Satellite page. Walk through the 4-step wizard (Farmer ID, Khasra Number, GPS auto-detect, soil chemistry, and sowing date). Click **Confirm Land Parcel** to generate a real cadastre polygon.
+2. **Real Satellite Mode**: Navigate to **Satellite**. View the **Real Satellite Mode** true-color orbital imagery (Esri World Imagery / Copernicus). Toggle between **🛰️ Real Satellite RGB**, **🌿 NDVI Canopy Vigor**, and **💧 NDWI Moisture**. Scrub the multi-temporal time machine slider, adjust the opacity slider, and zoom in/out with `+` and `-`. Click anywhere on the map to inspect pinpoint 10m Ground Sample GSD reflectance.
+3. **Autonomous AI Crop Doctor**: Navigate to **Crop Doctor**. Without needing to select any crop, drag & drop or click **Upload Leaf Photo**. Gemini Vision autonomously identifies the plant species (e.g., *Wheat*, *Tomato*, *Rice*), identifies the pathogen, estimates severity, and delivers dual ICAR/CIBRC biological and chemical remedies with text-to-speech audio readout (`🔊 Read Aloud`).
+4. **Live Weather Doppler**: Navigate to **Weather**. View live Open-Meteo operational Doppler radar observations with real-time temperature, precipitation probability, and Gemini agricultural interpretations.
+5. **AI Risk Engine**: In **Dashboard**, see the unified composite **Crop Risk Score (0–100)** with factor breakdowns dynamically calculated from the registered parcel's satellite data, weather risk, and Crop Doctor pathology.
+6. **Explainable AI**: Click **"Why?"** to inspect data sources (Sentinel-2, Open-Meteo, ICAR Soil Health Card, Crop Vision).
 7. **Dynamic Soil Intelligence**: Navigate to **Soil Health**. Adjust the interactive sliders (pH, N, P, K, Organic Carbon) or switch to report upload to see dynamic regenerative recommendations.
 8. **India Command Center**: In **India Command**, click breadcrumbs (*India ➔ UP ➔ Pratapgarh ➔ Sadar Block ➔ Pure Gosai ➔ Ayush Farm*) to observe how macro-to-micro metrics dynamically update.
 9. **Farmer Simple Mode**: Click **Farmer Simple Mode** in the header to view high-contrast action cards with Hindi audio playback (`🔊 सुनो`).
-10. **AgriVani Voice Assistant**: Click the floating mic icon. Speak in Hindi/vernacular or type in the text fallback to receive Gemini-reasoned audio answers.
+10. **AgriVani Voice Assistant**: Click the floating mic icon. Speak in Hindi/vernacular or type in the text fallback to receive Gemini-reasoned audio answers in 22 Indian languages.
 
 ---
 

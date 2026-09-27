@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/crop_doctor", tags=["Crop Doctor"])
 @router.post("/diagnose", response_model=CropDoctorResponse)
 async def diagnose_crop_disease(
     image: UploadFile = File(...),
-    crop_hint: str = Form("Wheat")
+    crop_hint: Optional[str] = Form(None)
 ):
     """
     Multimodal plant pathology vision diagnostic powered by Gemini Vision.
