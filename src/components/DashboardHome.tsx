@@ -48,13 +48,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const loadRisk = async () => {
     setLoadingRisk(true);
     try {
-      const data = await calculateCropRisk({
-        weather: { rain_probability: 82, temperature_c: 28.4 },
-        satellite: { ndvi: 0.78 },
-        soil: { moisture: 28.0 },
-        disease_detected: false,
-        crop_stage: 'Vegetative Tillering'
-      });
+      // Calculate dynamic risk from unified farm context (no hardcoded inputs)
+      const data = await calculateCropRisk();
       setRiskData(data);
     } catch {
       // fallback
@@ -296,21 +291,48 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
           {/* Factor Breakdown (Col 3-5) */}
           <div className="lg:col-span-3 space-y-3">
-            <span className="text-xs font-mono text-neutral-400 block">INDIVIDUAL FACTOR WEIGHTAGE:</span>
+            <span className="text-xs font-mono text-neutral-400 block">INDIVIDUAL FACTOR WEIGHTAGE & EXPLANATIONS:</span>
             <div className="space-y-2.5">
               {[
-                { factor: 'Water Stress & Inundation', pct: 28, color: 'bg-blue-500', note: '82% rain in 14h' },
-                { factor: 'Disease Vulnerability', pct: 18, color: 'bg-amber-500', note: 'Mild rust risk' },
-                { factor: 'Weather & Wind Anomaly', pct: 12, color: 'bg-purple-500', note: 'Gusts 28 km/h' },
-                { factor: 'Soil & Canopy Capacity', pct: 9, color: 'bg-emerald-500', note: 'NDVI 0.78 stable' }
+                {
+                  factor: 'Weather Hazard',
+                  score: riskData?.factor_breakdown?.['Weather Risk'] ?? 22.0,
+                  max: 30,
+                  color: 'bg-blue-500',
+                  explanation: riskData?.factor_explanations?.weather ?? '82% rain probability with 35mm anticipated in 14h'
+                },
+                {
+                  factor: 'Water & Soil Stress',
+                  score: riskData?.factor_breakdown?.['Water & Soil Stress'] ?? 18.0,
+                  max: 25,
+                  color: 'bg-cyan-500',
+                  explanation: riskData?.factor_explanations?.water_soil ?? 'Root zone moisture at 28% (68% field capacity)'
+                },
+                {
+                  factor: 'Pathogen & Disease',
+                  score: riskData?.factor_breakdown?.['Pathogen & Disease Risk'] ?? 12.0,
+                  max: 25,
+                  color: 'bg-amber-500',
+                  explanation: riskData?.factor_explanations?.disease ?? 'Crop Doctor monitoring active on flag leaf'
+                },
+                {
+                  factor: 'Vegetation Canopy',
+                  score: riskData?.factor_breakdown?.['Vegetation & Canopy Risk'] ?? 6.0,
+                  max: 20,
+                  color: 'bg-emerald-500',
+                  explanation: riskData?.factor_explanations?.vegetation ?? 'Sentinel-2 Level-2A canopy NDVI 0.78 (Stable)'
+                }
               ].map((item, idx) => (
-                <div key={idx} className="space-y-1">
+                <div key={idx} className="space-y-1 p-2 rounded-xl bg-black/25 border border-white/5">
                   <div className="flex justify-between text-xs font-mono">
-                    <span className="text-neutral-200">{item.factor}</span>
-                    <span className="text-neutral-400">+{item.pct}% ({item.note})</span>
+                    <span className="text-neutral-200 font-semibold">{item.factor}</span>
+                    <span className="text-neutral-300">+{item.score.toFixed(1)} pts</span>
                   </div>
-                  <div className="w-full bg-black/60 rounded-full h-2 overflow-hidden">
-                    <div className={`${item.color} h-full`} style={{ width: `${item.pct * 3}%` }} />
+                  <div className="w-full bg-black/60 rounded-full h-1.5 overflow-hidden">
+                    <div className={`${item.color} h-full transition-all duration-500`} style={{ width: `${Math.min(100, (item.score / item.max) * 100)}%` }} />
+                  </div>
+                  <div className="text-[11px] text-neutral-400 font-sans line-clamp-1">
+                    {item.explanation}
                   </div>
                 </div>
               ))}

@@ -428,7 +428,9 @@ export const App: React.FC = () => {
                   {activeTab === 'satellite' && <SatellitePage />}
 
                   {/* Crop Doctor ViT Diagnostics */}
-                  {activeTab === 'crop-doctor' && <CropDoctorPage />}
+                  {activeTab === 'crop-doctor' && (
+                    <CropDoctorPage onOpenWhyModal={(data) => openWhyModalWithData(data)} />
+                  )}
 
                   {/* Feature 4: Weather Page with Climate Scenario Simulator */}
                   {activeTab === 'weather' && <WeatherPage />}

@@ -6,3 +6,4 @@ requests>=2.32.0
 pillow>=10.4.0
 python-multipart>=0.0.9
 google-genai>=2.0.0
+earthengine-api>=1.0.0

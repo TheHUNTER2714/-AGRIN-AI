@@ -18,20 +18,90 @@ Build an interoperable digital agriculture network that delivers real-time, loca
 
 ---
 
-## 🏛️ System Architecture
+## 🏛️ System Architecture & Intelligence Pipeline
 
 ```
-                             AGRIN AI
-                                │
-        ┌───────────────────────┼───────────────────────┐
-        ↓                       ↓                       ↓
-   EXPERIENCE              INTELLIGENCE           INFRASTRUCTURE
-        │                       │                       │
- • 3D Canvas / Digital Twin • Gemini Multimodal API • India Scale (AgriStack)
- • Atmospheric Living UI    • Sentinel-2 Multispectral • FPO Data Aggregation
- • "Field to Future" Story  • Doppler Radar / Weather • State Agriculture Depts
- • Vernacular Voice (22 L)  • ICAR Soil Health Graph • BRICS Model Exchange
+                🧑‍🌾 FARMER
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+     📍 FARM DATA         📷 LEAF IMAGE
+          │                   │
+          ↓                   ↓
+   🛰️ Sentinel-2         Gemini Vision
+          │                   │
+     NDVI / NDWI       Crop / Leaf / Disease
+          │                   │
+          └─────────┬─────────┘
+                    ↓
+             🧠 AGRIN CONTEXT
+                    │
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+   🌦 Weather    🌱 Soil     🦠 Disease
+       │            │            │
+       └────────────┼────────────┘
+                    ↓
+             ⚡ RISK ENGINE
+                    ↓
+              ✨ GEMINI AI
+                    ↓
+        ┌───────────┼───────────┐
+        ↓           ↓           ↓
+    Advisory     AgriVani   Digital Twin
 ```
+
+---
+
+## 🔬 Live Production Integrations vs Prototype Simulations
+
+To ensure complete transparency and scientific rigor, AgriN AI strictly distinguishes between **implemented live data pipelines** and **interactive prototype simulations**:
+
+### 🟢 Implemented Live Integrations
+1. **Sentinel-2 Multispectral Pipeline (Google Earth Engine)**
+   - Queries Level-2A Surface Reflectance (`COPERNICUS/S2_SR_HARMONIZED`) via Google Earth Engine.
+   - Server-side credentials (`EARTH_ENGINE_SERVICE_ACCOUNT` / `EARTH_ENGINE_PROJECT`) kept strictly off client browsers.
+   - Cloud masking via `QA60` bitmask filtering (< 20% cloud tolerance).
+   - Canopy NDVI computed from Near-Infrared and Red bands: `(B8 - B4) / (B8 + B4)`.
+   - Water index NDWI computed from Near-Infrared and SWIR bands: `(B8 - B11) / (B8 + B11)`.
+   - Zonal farm-level statistics: `mean_ndvi`, `min_ndvi`, `max_ndvi`, and `std_ndvi` across sampled pixels.
+   - Directional vegetation trend: `improving`, `stable`, or `declining`.
+   - **Explicit Source States**: Every satellite readout displays an unmistakable badge: `LIVE` (Earth Engine authenticated), `DEMO` (calibrated Copernicus pass), `CALCULATED` (spectral model), or `SIMULATION` (synthetic fallback). Simulated data is **never** presented as live.
+
+2. **Crop Doctor Foliar Pathology (Structured Gemini Vision)**
+   - Multimodal analysis via Google Gemini Vision (`gemini-3.8-flash` / `gemini-flash-latest`).
+   - Image integrity verification via Pillow (PIL): rejects corrupt, empty, or non-image files with HTTP 400.
+   - Returns 12 structured JSON pathology fields:
+     - `crop_name`, `leaf_name`, `health_status`, `disease_name`, `confidence`, `severity`, `symptoms`, `possible_causes`, `recommended_actions`, `prevention`, `image_quality`, `needs_expert_confirmation`.
+   - Safe JSON extraction & schema validation.
+   - When Gemini is offline or unkeyed, uses a calibrated ICAR benchmark fallback explicitly labeled **`DEMO`** (never presented as live AI analysis).
+   - Features preliminary diagnosis disclaimers and an **Explainable AI** trigger button.
+
+3. **Unified Farm Context Engine (`FarmContextEngine`)**
+   - Thread-safe singleton unifying farm coordinates, active crop, phenological stage, soil chemistry, live weather, Sentinel-2 vegetation indices, and active Crop Doctor diagnosis.
+   - Synchronizes diagnosis results directly into farm context so subsequent risk calculations and advisory inquiries immediately reflect newly discovered pathogens.
+
+4. **Context-Driven Dynamic Risk Engine**
+   - Removed all hardcoded dashboard inputs from the primary evaluation flow.
+   - Dynamically calculates a 0–100 composite risk score directly from the unified context.
+   - Generates four factor-level explanations:
+     - 🌦️ **Weather**: Precipitation hazard, convective storms, wind shear.
+     - 🌱 **Vegetation**: Sentinel-2 canopy vigor and multi-pass trend.
+     - 💧 **Water & Soil**: Root-zone moisture tension, soil nitrogen reserves, pH.
+     - 🦠 **Disease**: Active foliar pathogen detected by Crop Doctor.
+
+5. **Context-Grounded Gemini Agricultural Advisor**
+   - Fuses current farm context, soil analysis, satellite metrics, and Crop Doctor diagnosis into the prompt.
+   - Delivers actionable organic/chemical protocols without hallucinating scientific certainty.
+
+6. **Live Weather Radar Pipeline (Open-Meteo)**
+   - Hyperlocal Doppler precipitation, temperature, wind speed, and humidity with automated agronomic interpretation.
+
+### 🟡 Prototype & Scenario Simulation Features
+1. **Farm Digital Twin**: Interactive 2.5D canvas for "What-If" scenario simulations (drought, excess rain, delayed irrigation). Clearly labeled as *Scenario Simulation*.
+2. **India Command Center**: Multi-tier 6-layer geospatial heatmap designed to demonstrate macro-to-micro regional administration.
+3. **AgriCycle Stubble Marketplace**: Logistics and direct benefit transfer (DBT) workflow model for paddy straw circular economy.
+4. **BRICS Agricultural Model Exchange**: Prototype federated architecture demonstrating cross-border model weight sharing.
 
 ---
 

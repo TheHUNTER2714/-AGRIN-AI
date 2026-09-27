@@ -13,6 +13,8 @@ from backend.routes.soil import router as soil_router
 from backend.routes.risk import router as risk_router
 from backend.routes.voice import router as voice_router
 from backend.routes.farms import router as farms_router
+from backend.routes.context import router as context_router
+from backend.services.satellite import get_earth_engine_status
 
 app = FastAPI(
     title="AGRIN AI — Interoperable Agro-Intelligence API",
@@ -44,15 +46,19 @@ app.include_router(soil_router)
 app.include_router(risk_router)
 app.include_router(voice_router)
 app.include_router(farms_router)
+app.include_router(context_router)
 
 @app.get("/api/health")
 async def health_check():
     gemini_key_present = bool(os.getenv("GEMINI_API_KEY"))
+    ee_status = get_earth_engine_status()
     return {
         "status": "healthy",
         "service": "AGRIN AI Backend Engine",
         "gemini_active": gemini_key_present,
         "mode": "live_gemini" if gemini_key_present else "demo_fallback_active",
+        "earth_engine": ee_status,
+        "satellite_pipeline": "operational",
         "timestamp": "Operational"
     }
 

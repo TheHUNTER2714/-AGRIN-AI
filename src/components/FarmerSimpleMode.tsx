@@ -36,11 +36,7 @@ export const FarmerSimpleMode: React.FC<FarmerSimpleModeProps> = ({
       try {
         const w = await fetchLiveWeather(25.92, 81.99, 'Pratapgarh, UP');
         setWeather(w);
-        const r = await calculateCropRisk({
-          weather: { rain_probability: w.rain_probability, temperature_c: w.temperature_c },
-          satellite: { ndvi: 0.78 },
-          soil: { moisture: 28.0 }
-        });
+        const r = await calculateCropRisk();
         setRisk(r);
       } catch {
         // Handled
