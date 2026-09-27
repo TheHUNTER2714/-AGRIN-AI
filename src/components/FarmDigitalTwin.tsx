@@ -173,15 +173,15 @@ export const FarmDigitalTwin: React.FC<FarmDigitalTwinProps> = ({ onOpenWhyModal
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-1">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            <span>AI DIGITAL TWIN SIMULATOR</span>
+            <span>WHAT-IF SCENARIO SIMULATOR</span>
             <span>•</span>
-            <span>WHAT-IF AGRICULTURAL PREDICTION ENGINE</span>
+            <span className="text-zinc-400">ESTIMATES BASED ON CONFIGURABLE ASSUMPTIONS</span>
           </div>
           <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-[#F9F8F3]">
             Ayush Farm Digital Twin
           </h1>
           <p className="text-sm text-neutral-300 font-light mt-1">
-            Virtual 2.5D twin of your agricultural parcels powered by ISRO Sentinel telemetry & in-situ sensors.
+            Virtual 2.5D twin of your agricultural parcels simulating field response to rainfall variations and irrigation adjustments.
           </p>
         </div>
 

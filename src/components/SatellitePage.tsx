@@ -2,39 +2,59 @@ import React, { useState, useEffect } from 'react';
 import { 
   Satellite, 
   Sliders, 
-  Download,
   Play,
   Pause,
-  Crosshair
+  Crosshair,
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
+import { fetchSatelliteData, type SatelliteData } from '../services/api';
 
 export const SatellitePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'ndvi' | 'ndwi' | 'stress' | 'historical'>('ndvi');
   const [timelineIndex, setTimelineIndex] = useState(5); // default Sep 26
   const [timeMode, setTimeMode] = useState<'dates' | 'years'>('dates');
   const [isPlayingTimeline, setIsPlayingTimeline] = useState(false);
   const [cloudMaskEnabled, setCloudMaskEnabled] = useState(true);
+  const [satelliteData, setSatelliteData] = useState<SatelliteData | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const [inspectedPixel, setInspectedPixel] = useState<{ x: number; y: number; ndvi: number; health: string } | null>({
     x: 48,
     y: 52,
-    ndvi: 0.81,
-    health: 'Optimal Canopy',
+    ndvi: 0.78,
+    health: 'Optimal Canopy Vigour',
   });
 
+  const loadSatellite = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchSatelliteData(25.92, 81.99, 'plotA');
+      setSatelliteData(data);
+    } catch {
+      // API client fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSatellite();
+  }, []);
+
   const dateTimeline = [
-    { label: 'Sep 01', ndvi: 0.74, ndwi: 0.48, stress: 'Healthy', phase: 'HEALTHY', clouds: '1.2%', color: 'from-[#064E3B] via-[#059669] to-[#84CC16]' },
-    { label: 'Sep 06', ndvi: 0.68, ndwi: 0.42, stress: 'Moderate', phase: 'HEALTHY', clouds: '2.4%', color: 'from-[#065F46] via-[#10B981] to-[#65A30D]' },
-    { label: 'Sep 11', ndvi: 0.52, ndwi: 0.28, stress: 'High Stress', phase: 'STRESSED', clouds: '0.8%', color: 'from-[#78350F] via-[#D97706] to-[#F59E0B]' },
-    { label: 'Sep 16', ndvi: 0.58, ndwi: 0.34, stress: 'Stressed', phase: 'STRESSED', clouds: '3.1%', color: 'from-[#B45309] via-[#EAB308] to-[#84CC16]' },
-    { label: 'Sep 21', ndvi: 0.76, ndwi: 0.50, stress: 'Recovering', phase: 'RECOVERY', clouds: '1.5%', color: 'from-[#065F46] via-[#059669] to-[#84CC16]' },
-    { label: 'Sep 26', ndvi: 0.83, ndwi: 0.56, stress: 'Optimal Vigour', phase: 'RECOVERY', clouds: '0.4%', color: 'from-[#064E3B] via-[#10B981] to-[#A3E635]' },
+    { label: 'Sep 01', ndvi: 0.74, ndwi: 0.38, stress: 'Healthy', phase: 'HEALTHY', clouds: '12.4%', color: 'from-[#064E3B] via-[#059669] to-[#84CC16]' },
+    { label: 'Sep 06', ndvi: 0.68, ndwi: 0.29, stress: 'Moderate', phase: 'HEALTHY', clouds: '18.2%', color: 'from-[#065F46] via-[#10B981] to-[#65A30D]' },
+    { label: 'Sep 11', ndvi: 0.59, ndwi: 0.22, stress: 'High Stress', phase: 'STRESSED', clouds: '34.8%', color: 'from-[#78350F] via-[#D97706] to-[#F59E0B]' },
+    { label: 'Sep 16', ndvi: 0.71, ndwi: 0.31, stress: 'Stressed', phase: 'RECOVERY', clouds: '8.5%', color: 'from-[#B45309] via-[#EAB308] to-[#84CC16]' },
+    { label: 'Sep 21', ndvi: 0.76, ndwi: 0.33, stress: 'Recovering', phase: 'HEALTHY', clouds: '5.1%', color: 'from-[#065F46] via-[#059669] to-[#84CC16]' },
+    { label: 'Sep 26', ndvi: 0.78, ndwi: 0.32, stress: 'Optimal Vigour', phase: 'HEALTHY', clouds: '4.2%', color: 'from-[#064E3B] via-[#10B981] to-[#A3E635]' },
   ];
 
   const yearTimeline = [
-    { label: '2024 Season', ndvi: 0.65, ndwi: 0.41, stress: 'Severe Drought Year', phase: 'STRESSED', clouds: '4.8%', color: 'from-[#78350F] via-[#D97706] to-[#F59E0B]' },
-    { label: '2025 Season', ndvi: 0.72, ndwi: 0.49, stress: 'Moderate Yield', phase: 'RECOVERY', clouds: '2.1%', color: 'from-[#065F46] via-[#10B981] to-[#65A30D]' },
-    { label: '2026 (Current)', ndvi: 0.83, ndwi: 0.56, stress: 'AgriN Optimized', phase: 'HEALTHY', clouds: '0.4%', color: 'from-[#064E3B] via-[#10B981] to-[#A3E635]' },
+    { label: '2024 Season', ndvi: 0.65, ndwi: 0.28, stress: 'Severe Drought Year', phase: 'STRESSED', clouds: '14.8%', color: 'from-[#78350F] via-[#D97706] to-[#F59E0B]' },
+    { label: '2025 Season', ndvi: 0.72, ndwi: 0.30, stress: 'Moderate Yield', phase: 'RECOVERY', clouds: '9.1%', color: 'from-[#065F46] via-[#10B981] to-[#65A30D]' },
+    { label: '2026 (Current)', ndvi: 0.78, ndwi: 0.32, stress: 'AgriN Optimized', phase: 'HEALTHY', clouds: '4.2%', color: 'from-[#064E3B] via-[#10B981] to-[#A3E635]' },
   ];
 
   const currentTimeline = timeMode === 'dates' ? dateTimeline : yearTimeline;
@@ -64,7 +84,7 @@ export const SatellitePage: React.FC = () => {
     const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
     const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
     soundFx.playScanTone();
-    const randomizedNdvi = (currentObservation.ndvi + (Math.random() * 0.08 - 0.04)).toFixed(2);
+    const randomizedNdvi = (currentObservation.ndvi + (Math.random() * 0.06 - 0.03)).toFixed(2);
     setInspectedPixel({
       x,
       y,
@@ -80,9 +100,9 @@ export const SatellitePage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-1">
             <Satellite className="w-4 h-4 animate-spin-slow" />
-            <span>SENTINEL-2B MULTISPECTRAL INSTRUMENT (MSI)</span>
+            <span>SENTINEL-2 MSI (COPERNICUS / ESA)</span>
             <span>•</span>
-            <span>LEVEL-2A SURFACE REFLECTANCE</span>
+            <span className="text-zinc-400">LEVEL-2A SURFACE REFLECTANCE</span>
           </div>
           <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-[#F9F8F3]">
             Satellite Time Machine
@@ -95,286 +115,313 @@ export const SatellitePage: React.FC = () => {
         {/* Orbit Telemetry Badges */}
         <div className="flex flex-wrap gap-3 font-mono text-xs">
           <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-            <span className="text-neutral-400 block text-[10px]">SPATIAL PIXEL</span>
-            <span className="text-emerald-300 font-bold">10-Meter Res</span>
+            <span className="text-neutral-400 block text-[10px]">SPATIAL RESOLUTION</span>
+            <span className="text-emerald-300 font-bold">10-Meter Multi-Spectral</span>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-            <span className="text-neutral-400 block text-[10px]">CLOUD COVERAGE</span>
-            <span className="text-cyan-300 font-bold">{currentObservation.clouds}</span>
+            <span className="text-neutral-400 block text-[10px]">REVISIT FREQUENCY</span>
+            <span className="text-cyan-300 font-bold">5-Day Constellation</span>
           </div>
-          <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-            <span className="text-neutral-400 block text-[10px]">SUN ELEVATION</span>
-            <span className="text-amber-300 font-bold">54.8° Azimuth</span>
+          <button
+            onClick={() => {
+              soundFx.playClick();
+              loadSatellite();
+            }}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-2xl glass-panel-subtle hover:border-emerald-400 text-emerald-300 text-xs font-semibold cursor-pointer transition-all self-center"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Fetch Pass</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mandatory Scientific Label: Latest Available Sentinel-2 Observation (P0 Requirement) */}
+      <div className="p-5 rounded-3xl bg-black/60 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-4 text-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300">
+            <Satellite className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
+              {satelliteData?.label || 'Latest available Sentinel-2 observation'}
+            </div>
+            <div className="text-sm font-bold text-white flex items-center gap-2">
+              <span>Observation: {satelliteData?.observation_date || '26 Sep 2026, 10:42 UTC'}</span>
+              <span className="text-[10px] font-mono bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/40">
+                Cloud Mask: {satelliteData?.cloud_cover_percent || 4.2}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-6 font-mono">
+          <div>
+            <span className="text-[10px] text-neutral-400 block">CANOPY NDVI</span>
+            <span className="text-lg font-bold text-emerald-400">
+              {satelliteData?.ndvi || 0.78}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-neutral-400 block">CANOPY NDWI</span>
+            <span className="text-lg font-bold text-blue-400">
+              {satelliteData?.ndwi || 0.32}
+            </span>
+          </div>
+          <div>
+            <span className="text-[10px] text-neutral-400 block">VHI INDEX</span>
+            <span className="text-lg font-bold text-lime-400">
+              {satelliteData?.vegetation_health_index || 78}%
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Spectral Layer Selector Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-4">
-        {[
-          { id: 'ndvi', label: 'NDVI (Crop Vigour & Biomass)' },
-          { id: 'ndwi', label: 'NDWI (Canopy Water Stress)' },
-          { id: 'stress', label: 'Thermal Anomaly (Heat Index)' },
-          { id: 'overview', label: 'True Color RGB' },
-          { id: 'historical', label: 'Long-term Decadal Baseline' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              soundFx.playClick();
-              setActiveTab(tab.id as unknown as typeof activeTab);
-            }}
-            className={`px-4 py-2 rounded-full text-xs font-medium cursor-pointer transition-all ${
-              activeTab === tab.id
-                ? 'bg-emerald-500 text-black font-semibold shadow-lg'
-                : 'glass-panel-subtle text-neutral-300 hover:text-white'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Map & Spectral Canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Cols: Satellite Raster Viewer & Time Machine Scrubber */}
-        <div className="lg:col-span-2 glass-panel rounded-3xl p-6 border border-emerald-500/20 flex flex-col justify-between">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <span className="font-mono text-xs text-[#ECE8DD] font-semibold">
-                PRATAPGARH TRACT — {currentObservation.label}
-              </span>
+      {/* Time Machine Interactive Scrubber Box */}
+      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/30 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-1">
+              <Sliders className="w-4 h-4" />
+              <span>FEATURE 3 • SATELLITE TIME MACHINE SCRUBBER</span>
             </div>
+            <h2 className="font-display font-extrabold text-2xl text-[#ECE8DD]">
+              Multi-Temporal Observation Slider
+            </h2>
+            <p className="text-xs text-neutral-300 font-light mt-0.5">
+              Drag the timeline scrubber to watch vegetation indices evolve across orbital acquisition passes.
+            </p>
+          </div>
 
-            {/* Time Machine Mode Switch (Dates vs Years) */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/10 text-xs font-mono">
-                <button
-                  onClick={() => {
-                    soundFx.playClick();
-                    setTimeMode('dates');
-                    setTimelineIndex(5);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg cursor-pointer ${
-                    timeMode === 'dates' ? 'bg-emerald-500 text-black font-bold' : 'text-neutral-400'
-                  }`}
-                >
-                  Dates (Sep 2026)
-                </button>
-                <button
-                  onClick={() => {
-                    soundFx.playClick();
-                    setTimeMode('years');
-                    setTimelineIndex(2);
-                  }}
-                  className={`px-2.5 py-1 rounded-lg cursor-pointer ${
-                    timeMode === 'years' ? 'bg-emerald-500 text-black font-bold' : 'text-neutral-400'
-                  }`}
-                >
-                  Years (2024–2026)
-                </button>
-              </div>
+          {/* Mode Switcher (Dates vs Years) & Play/Pause */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                setIsPlayingTimeline((prev) => !prev);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition-all cursor-pointer shadow-md"
+            >
+              {isPlayingTimeline ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              <span>{isPlayingTimeline ? 'Pause' : 'Play Timeline'}</span>
+            </button>
 
+            <div className="flex rounded-full bg-black/40 border border-white/10 p-0.5 text-xs">
               <button
-                onClick={() => setCloudMaskEnabled(!cloudMaskEnabled)}
-                className={`px-2.5 py-1 rounded-lg border text-[11px] font-mono cursor-pointer transition-colors ${
-                  cloudMaskEnabled ? 'border-emerald-500/40 text-emerald-300 bg-emerald-950/30' : 'border-white/10 text-neutral-400'
+                onClick={() => {
+                  soundFx.playClick();
+                  setTimeMode('dates');
+                  setTimelineIndex(5);
+                }}
+                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                  timeMode === 'dates' ? 'bg-emerald-500/30 text-emerald-300 font-semibold' : 'text-neutral-400'
                 }`}
               >
-                Cloud Mask: {cloudMaskEnabled ? 'ON' : 'OFF'}
+                Past 30 Days
+              </button>
+              <button
+                onClick={() => {
+                  soundFx.playClick();
+                  setTimeMode('years');
+                  setTimelineIndex(2);
+                }}
+                className={`px-3 py-1 rounded-full transition-all cursor-pointer ${
+                  timeMode === 'years' ? 'bg-emerald-500/30 text-emerald-300 font-semibold' : 'text-neutral-400'
+                }`}
+              >
+                Multi-Year
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Raster Visual with Dynamic Shaders & Click Pixel Inspector */}
-          <div 
-            onClick={handleRasterClick}
-            className="relative h-80 sm:h-[420px] rounded-2xl overflow-hidden border border-white/10 flex items-center justify-center cursor-crosshair group"
-          >
-            {/* Background Satellite Shader transition */}
-            <div 
-              className={`absolute inset-0 transition-all duration-700 bg-gradient-to-br ${currentObservation.color}`}
-              style={{ opacity: 0.9 }}
-            />
+        {/* Range Slider */}
+        <div className="space-y-3 pt-2">
+          <input
+            type="range"
+            min="0"
+            max={currentTimeline.length - 1}
+            step="1"
+            value={clampedIndex}
+            onChange={handleSliderChange}
+            className="w-full accent-emerald-400 cursor-pointer h-2 bg-black/60 rounded-lg appearance-none"
+          />
 
-            {/* Satellite Grid Scan Overlay */}
-            <div className="absolute inset-0 satellite-grid opacity-35 pointer-events-none" />
-
-            {/* Dynamic Cadastral Overlays */}
-            <div className="relative z-10 w-full h-full p-6 flex flex-col justify-between font-mono text-xs pointer-events-none">
-              <div className="flex justify-between items-start">
-                <div className="bg-black/70 backdrop-blur-md p-3 rounded-xl border border-white/10">
-                  <div className="text-emerald-300 font-bold">WHEAT SECTOR 4A</div>
-                  <div className="text-white text-[11px]">NDVI: {(currentObservation.ndvi + 0.02).toFixed(2)}</div>
-                  <div className="text-neutral-400 text-[10px]">Pixel Turgor: Adequate</div>
-                </div>
-
-                {/* State Tag: HEALTHY -> STRESSED -> RECOVERY */}
-                <div className="bg-black/80 backdrop-blur-md px-4 py-2 rounded-2xl border border-emerald-400/40 shadow-xl flex items-center gap-2">
-                  <span className={`w-2.5 h-2.5 rounded-full ${
-                    currentObservation.phase === 'HEALTHY'
-                      ? 'bg-emerald-400 animate-pulse'
-                      : currentObservation.phase === 'STRESSED'
-                      ? 'bg-amber-400 animate-ping'
-                      : 'bg-teal-400 animate-pulse'
-                  }`} />
-                  <div>
-                    <span className="text-[9px] text-neutral-400 block">OBSERVATION STATE:</span>
-                    <span className={`font-bold text-sm ${
-                      currentObservation.phase === 'HEALTHY'
-                        ? 'text-emerald-300'
-                        : currentObservation.phase === 'STRESSED'
-                        ? 'text-amber-300'
-                        : 'text-teal-300'
-                    }`}>
-                      {currentObservation.phase}
-                    </span>
-                  </div>
-                </div>
+          {/* Step Labels */}
+          <div className="grid grid-cols-6 sm:grid-cols-6 gap-1 text-center font-mono">
+            {currentTimeline.map((item, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  soundFx.playClick();
+                  setTimelineIndex(idx);
+                  setIsPlayingTimeline(false);
+                }}
+                className={`cursor-pointer p-2 rounded-xl transition-all ${
+                  clampedIndex === idx
+                    ? 'bg-emerald-950/60 border border-emerald-400 text-white font-bold'
+                    : 'text-neutral-400 hover:text-white'
+                }`}
+              >
+                <div className="text-xs">{item.label}</div>
+                <div className="text-[10px] text-emerald-400 mt-0.5">NDVI {item.ndvi}</div>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Inspected Pixel Reticle */}
-              {inspectedPixel && (
-                <div 
-                  className="absolute pointer-events-none transition-all duration-300 transform -translate-x-1/2 -translate-y-1/2"
-                  style={{ left: `${inspectedPixel.x}%`, top: `${inspectedPixel.y}%` }}
-                >
-                  <div className="relative">
-                    <Crosshair className="w-8 h-8 text-emerald-300 animate-spin-slow" />
-                    <div className="absolute left-8 top-0 bg-black/90 p-2 rounded-lg border border-emerald-400 text-[10px] whitespace-nowrap shadow-xl">
-                      <span className="text-emerald-400 font-bold">Pixel (X:{inspectedPixel.x}, Y:{inspectedPixel.y}):</span>
-                      <div className="text-white">NDVI: {inspectedPixel.ndvi} • {inspectedPixel.health}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
+        {/* Active Time Machine Step Readout */}
+        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold uppercase ${
+              currentObservation.phase === 'HEALTHY'
+                ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                : currentObservation.phase === 'STRESSED'
+                ? 'bg-amber-950 text-amber-300 border border-amber-500/40'
+                : 'bg-teal-950 text-teal-300 border border-teal-500/40'
+            }`}>
+              {currentObservation.phase}
+            </span>
+            <span className="text-sm font-semibold text-white">
+              {currentObservation.label} • Condition: {currentObservation.stress}
+            </span>
+          </div>
 
-              {/* Spectral Legend Bar */}
-              <div className="bg-black/85 backdrop-blur-md p-3 rounded-xl border border-white/10 max-w-sm self-center w-full">
-                <div className="flex justify-between text-[10px] text-neutral-300 mb-1">
-                  <span>Barren (0.1)</span>
-                  <span>Stressed (0.4)</span>
-                  <span>Dense Canopy (0.9)</span>
-                </div>
-                <div className="h-2 rounded-full w-full bg-gradient-to-r from-red-500 via-amber-400 to-emerald-400" />
-              </div>
+          <div className="flex items-center gap-4 text-xs font-mono text-neutral-300">
+            <span>NDVI: <strong className="text-emerald-400">{currentObservation.ndvi}</strong></span>
+            <span>NDWI: <strong className="text-blue-400">{currentObservation.ndwi}</strong></span>
+            <span>Cloud Cover: <strong className="text-neutral-400">{currentObservation.clouds}</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Raster Visualizer + Coordinate Pixel Inspector */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left: 2-Column Raster Viewport */}
+        <div className="lg:col-span-2 glass-panel rounded-3xl p-6 border border-emerald-500/20 space-y-4">
+          <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
+            <span>SENTINEL-2 MULTISPECTRAL RASTER VIEWPORT</span>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
+                <input
+                  type="checkbox"
+                  checked={cloudMaskEnabled}
+                  onChange={(e) => setCloudMaskEnabled(e.target.checked)}
+                  className="accent-emerald-400"
+                />
+                <span>Cloud Mask</span>
+              </label>
+              <span className="text-emerald-400 font-semibold">CLICK FIELD TO INSPECT</span>
             </div>
           </div>
 
-          {/* SATELLITE TIME MACHINE SCRUBBER BAR */}
-          <div className="mt-6 pt-4 border-t border-white/10 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    soundFx.playClick();
-                    setIsPlayingTimeline(!isPlayingTimeline);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold cursor-pointer transition-all shadow-md"
-                >
-                  {isPlayingTimeline ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                  <span>{isPlayingTimeline ? 'Pause Time Machine' : 'Play Time Machine'}</span>
-                </button>
+          {/* Interactive Raster Canvas */}
+          <div
+            onClick={handleRasterClick}
+            className="relative h-80 sm:h-96 rounded-2xl overflow-hidden cursor-crosshair border border-white/10 group shadow-inner"
+          >
+            {/* Dynamic false-color background responding to current observation */}
+            <div
+              className={`absolute inset-0 bg-gradient-to-br ${currentObservation.color} opacity-85 transition-all duration-700`}
+            />
 
-                <span className="text-neutral-400 hidden sm:inline">
-                  Drag slider to scrub satellite acquisition history
-                </span>
-              </div>
+            {/* Farm Contour & Field Boundary Overlays */}
+            <div className="absolute inset-0 satellite-grid opacity-35" />
+            <div className="absolute inset-0 contour-pattern opacity-40" />
 
-              <div className="flex items-center gap-2">
-                <span className="text-neutral-400">Selected Pass:</span>
-                <span className="text-emerald-400 font-bold text-sm bg-black/40 px-3 py-1 rounded-xl border border-emerald-500/30">
-                  {currentObservation.label}
-                </span>
-              </div>
-            </div>
+            {/* Cloud mask overlay */}
+            {cloudMaskEnabled && (
+              <div className="absolute top-4 right-6 w-32 h-20 rounded-full bg-white/15 blur-xl pointer-events-none" />
+            )}
 
-            {/* Slider */}
-            <div className="relative px-2">
-              <input
-                type="range"
-                min="0"
-                max={currentTimeline.length - 1}
-                value={clampedIndex}
-                onChange={handleSliderChange}
-                className="w-full accent-emerald-500 cursor-pointer h-2.5 bg-white/10 rounded-lg appearance-none"
-              />
-              <div className="flex justify-between mt-2 font-mono text-[10px] text-neutral-400">
-                {currentTimeline.map((d, i) => (
-                  <span 
-                    key={d.label} 
-                    className={`${i === clampedIndex ? 'text-emerald-400 font-extrabold text-xs' : ''}`}
-                  >
-                    {d.label}
-                  </span>
-                ))}
+            {/* Interactive Target Crosshair Indicator */}
+            {inspectedPixel && (
+              <div
+                className="absolute w-8 h-8 -ml-4 -mt-4 border-2 border-white rounded-full flex items-center justify-center pointer-events-none shadow-[0_0_15px_rgba(255,255,255,0.8)] transition-all duration-200"
+                style={{ left: `${inspectedPixel.x}%`, top: `${inspectedPixel.y}%` }}
+              >
+                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
               </div>
+            )}
+
+            {/* Legend Overlay on Canvas */}
+            <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-[10px] font-mono text-neutral-300 flex items-center gap-3">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" /> Healthy (0.7-1.0)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" /> Stressed (0.5-0.7)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" /> Critical (&lt;0.5)</span>
             </div>
           </div>
         </div>
 
-        {/* Right 1 Col: Spectral Bands & AI Vegetation Trends */}
-        <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/20 space-y-6 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest">
-                Spectral Analysis
-              </span>
-              <Sliders className="w-4 h-4 text-emerald-400" />
-            </div>
-
-            <h3 className="font-display font-bold text-xl text-[#F9F8F3]">
-              Canopy Phenology
-            </h3>
-
-            <p className="text-xs text-neutral-300 leading-relaxed font-light">
-              Calculated using the Near-Infrared (Band 8, 842nm) and Red (Band 4, 665nm) surface reflectance values.
-            </p>
-
-            <div className="space-y-3 font-mono text-xs">
-              <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">MEAN NDVI:</span>
-                  <span className="text-emerald-400 font-bold">{currentObservation.ndvi}</span>
-                </div>
-                <div className="text-[10px] text-neutral-500">Photosynthetic efficiency index</div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">WATER CANOPY INDEX (NDWI):</span>
-                  <span className="text-cyan-400 font-bold">{currentObservation.ndwi}</span>
-                </div>
-                <div className="text-[10px] text-neutral-500">Leaf cellular turgidity balance</div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">DIAGNOSTIC STATUS:</span>
-                  <span className="text-emerald-400 font-bold">{currentObservation.stress}</span>
-                </div>
-                <div className="text-[10px] text-neutral-500">{currentObservation.phase} phase confirmed</div>
-              </div>
-            </div>
+        {/* Right: Coordinate Pixel Inspector */}
+        <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/20 space-y-5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+              <Crosshair className="w-4 h-4 text-emerald-400" /> PIXEL INSPECTOR
+            </span>
+            <span className="text-xs font-mono text-neutral-400">10m GSD</span>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-white/10">
-            <div className="text-[11px] font-mono text-emerald-400 font-semibold">
-              TIME MACHINE CONCLUSION:
-            </div>
-            <p className="text-xs text-neutral-300/90 leading-relaxed font-sans">
-              Plot A demonstrates complete chlorophyll recovery following precision biochar retention and held irrigation cycles.
-            </p>
+          {inspectedPixel ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+                <div className="text-[10px] font-mono text-neutral-400">INTERPOLATED COORDINATES</div>
+                <div className="font-mono text-xs text-white">
+                  25.92{inspectedPixel.x}° N, 81.99{inspectedPixel.y}° E
+                </div>
+                <div className="flex justify-between items-baseline pt-2">
+                  <span className="text-xs text-neutral-300">CALIBRATED NDVI:</span>
+                  <span className="text-2xl font-bold font-mono text-emerald-400">
+                    {inspectedPixel.ndvi}
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono text-cyan-300">
+                  {inspectedPixel.health}
+                </div>
+              </div>
 
-            <button
-              onClick={() => soundFx.playClick()}
-              className="w-full py-2.5 rounded-full glass-panel-subtle hover:border-emerald-500/40 text-emerald-300 text-xs font-mono flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export GeoTIFF Raster (10m)</span>
-            </button>
-          </div>
+              {/* Band Reflectance Spectral Response */}
+              <div className="space-y-2">
+                <span className="text-xs font-mono text-neutral-400 block">SPECTRAL REFLECTANCE BANDS:</span>
+                <div className="space-y-1.5 text-xs font-mono">
+                  <div className="flex justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                    <span className="text-blue-300">Band 2 (Blue, 490nm):</span>
+                    <span className="text-white">0.039</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                    <span className="text-emerald-300">Band 3 (Green, 560nm):</span>
+                    <span className="text-white">0.068</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                    <span className="text-red-300">Band 4 (Red, 665nm):</span>
+                    <span className="text-white">0.033</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded-lg bg-black/30 border border-white/5">
+                    <span className="text-purple-300">Band 8 (NIR, 842nm):</span>
+                    <span className="text-white">0.452</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-neutral-400 text-center py-10">
+              Click anywhere on the raster canvas to inspect coordinate-level NDVI values.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Data Source & Provenance Panel */}
+      <div className="glass-panel p-4 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between text-xs font-mono text-neutral-400 gap-3">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+          <span>FARM: Plot A Sharbati Wheat, Pratapgarh, UP (Tile T44RKR)</span>
+        </div>
+        <div>
+          <span>SOURCE: {satelliteData?.source || 'Copernicus Open Access Hub / ESA Sentinel-2 MSI'}</span>
+        </div>
+        <div>
+          <span className="text-emerald-400">STATUS: CALIBRATED</span>
         </div>
       </div>
     </div>

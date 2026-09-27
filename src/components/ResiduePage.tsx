@@ -268,10 +268,13 @@ export const ResiduePage: React.FC = () => {
 
                   <div className="text-right">
                     <span className="text-lg font-bold font-mono text-[#F9F8F3]">{b.total}</span>
-                    <div className="text-[10px] text-neutral-400 font-mono">Net Payout</div>
+                    <div className="text-[9px] text-neutral-400 font-mono">Estimated Payout (Indicative Rate)</div>
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="text-[10px] font-mono text-neutral-400 mt-2">
+              * Note: Demonstrates circular economy workflow with simulated demo network. Payouts are indicative estimates based on regional biomass benchmarks.
             </div>
           </div>
 

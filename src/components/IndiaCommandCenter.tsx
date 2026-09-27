@@ -16,7 +16,116 @@ import {
 import { soundFx } from '../utils/audio';
 
 type MapLayer = 'disease' | 'water-stress' | 'heat' | 'rainfall' | 'crop-health' | 'residue';
-type GeoLevel = 'national' | 'state' | 'district' | 'village';
+type GeoLevel = 'national' | 'state' | 'district' | 'block' | 'village' | 'farm';
+
+interface LevelMetrics {
+  level: GeoLevel;
+  label: string;
+  fullName: string;
+  scopeTag: string;
+  cropRisk: number;
+  riskStatus: 'Critical' | 'Moderate' | 'Safe' | 'Guarded';
+  waterStress: string;
+  diseaseHotspots: number;
+  weatherSummary: string;
+  monitoredFarms: string;
+  monitoredArea: string;
+  activeNDVI: string;
+  directive: string;
+}
+
+const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
+  national: {
+    level: 'national',
+    label: 'India (National)',
+    fullName: 'Republic of India — National Agro-Climatic Grid',
+    scopeTag: 'MACRO NATIONAL SENTINEL (28 STATES)',
+    cropRisk: 42,
+    riskStatus: 'Moderate',
+    waterStress: '-11% below decadal water baseline',
+    diseaseHotspots: 142,
+    weatherSummary: 'Southwest monsoon withdrawing; localized rain in Gangetic belt',
+    monitoredFarms: '2,480,000 Smallholders',
+    monitoredArea: '40.0M Hectares',
+    activeNDVI: '0.64 (National Mean)',
+    directive: 'Issue national advisories for wheat rabi sowing preparation and paddy straw stubble burning mitigation.',
+  },
+  state: {
+    level: 'state',
+    label: 'Uttar Pradesh',
+    fullName: 'Uttar Pradesh — Central Gangetic Agro-Climatic Zone',
+    scopeTag: 'STATE JURISDICTION (75 DISTRICTS)',
+    cropRisk: 54,
+    riskStatus: 'Moderate',
+    waterStress: '-8% below decadal average',
+    diseaseHotspots: 38,
+    weatherSummary: 'Rain showers forecasted in Eastern Awadh basin (27°C, 82% humidity)',
+    monitoredFarms: '640,000 Farms',
+    monitoredArea: '14.8M Hectares',
+    activeNDVI: '0.71 (Statewide)',
+    directive: 'Canal release scheduled for Southern Awadh canal network; alert issued for root rot in low-lying fields.',
+  },
+  district: {
+    level: 'district',
+    label: 'Pratapgarh',
+    fullName: 'Pratapgarh District — Awadh Plain, UP',
+    scopeTag: 'DISTRICT COLLECTORATE (17 BLOCKS)',
+    cropRisk: 67,
+    riskStatus: 'Critical',
+    waterStress: '+18% short-term water logging risk',
+    diseaseHotspots: 14,
+    weatherSummary: 'High rain probability 84%, 12.4mm precipitation expected in 24h',
+    monitoredFarms: '48,200 Farms',
+    monitoredArea: '371,000 Hectares',
+    activeNDVI: '0.78 (Sentinel-2 L2A)',
+    directive: 'Delay nitrogen urea top-dressing and chemical sprays until surface drainage clears within 48h.',
+  },
+  block: {
+    level: 'block',
+    label: 'Sadar Block',
+    fullName: 'Sadar Tehsil / Block — Pratapgarh',
+    scopeTag: 'TEHSIL BLOCK LEVEL (112 GRAM PANCHAYATS)',
+    cropRisk: 62,
+    riskStatus: 'Moderate',
+    waterStress: 'Surface saturation 72% of field capacity',
+    diseaseHotspots: 6,
+    weatherSummary: 'Scattered thunderstorms; wind speeds 18 km/h',
+    monitoredFarms: '8,400 Farms',
+    monitoredArea: '42,000 Hectares',
+    activeNDVI: '0.76 (Sentinel-2)',
+    directive: 'FPO aggregation active: coordinate laser land levelling and drainage furrow clearing.',
+  },
+  village: {
+    level: 'village',
+    label: 'Pure Gosai Village',
+    fullName: 'Pure Gosai Gram Panchayat Cluster (4 Hamlets)',
+    scopeTag: 'VILLAGE PANCHAYAT LEVEL (340 HOUSEHOLDS)',
+    cropRisk: 67,
+    riskStatus: 'Critical',
+    waterStress: 'Heavy rain forecasted — delay tube-well irrigation',
+    diseaseHotspots: 2,
+    weatherSummary: 'Cloudy, 27.7°C, Rain expected 16:30 IST',
+    monitoredFarms: '340 Registered Farmers',
+    monitoredArea: '1,280 Hectares',
+    activeNDVI: '0.78 (Sentinel-2 MSI)',
+    directive: 'AgriCycle residue collection van arriving tomorrow morning. Straw baling subsidized at ₹1,800/ton.',
+  },
+  farm: {
+    level: 'farm',
+    label: 'Ayush Farm (Demo)',
+    fullName: 'Ayush Farm — Plot 14-B (Wheat / PBW-550)',
+    scopeTag: 'INDIVIDUAL FARM PARCEL (14.2 HA)',
+    cropRisk: 67,
+    riskStatus: 'Critical',
+    waterStress: 'Root-zone moisture 28% (Water stress weight: 28%)',
+    diseaseHotspots: 1,
+    weatherSummary: '27.7°C • 84% Rain Probability • Wind 12 km/h',
+    monitoredFarms: 'Ayush Farm (Plot 14-B)',
+    monitoredArea: '14.2 Hectares',
+    activeNDVI: '0.78 (Sentinel-2 Band 8/Band 4)',
+    directive: 'Do NOT irrigate today. Yellow Rust early foliar symptoms detected on 12% of sample foliage. Apply Propiconazole after rain.',
+  },
+};
 
 interface StateData {
   id: string;
@@ -35,6 +144,13 @@ export const IndiaCommandCenter: React.FC = () => {
   const [geoLevel, setGeoLevel] = useState<GeoLevel>('district');
   const [selectedState, setSelectedState] = useState<string>('up');
   const [broadcastSent, setBroadcastSent] = useState(false);
+
+  const currentLevelData = HIERARCHY_DATA[geoLevel];
+
+  const handleLevelChange = (lvl: GeoLevel) => {
+    soundFx.playClick();
+    setGeoLevel(lvl);
+  };
 
   const statesData: Record<string, StateData> = {
     up: {
@@ -106,47 +222,70 @@ export const IndiaCommandCenter: React.FC = () => {
             India Agricultural Risk Map & Command
           </h1>
           <p className="text-sm text-neutral-300 font-light mt-1">
-            Macro-level agricultural monitoring across 28 states and union territories.
+            Macro-to-micro drill-down across 28 states down to individual farm plots.
           </p>
         </div>
 
-        {/* Drill-down breadcrumbs (State -> District -> Block -> Village) */}
+        {/* Drill-down breadcrumbs (India -> UP -> Pratapgarh -> Sadar Block -> Pure Gosai -> Ayush Farm) */}
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-          <button
-            onClick={() => setGeoLevel('national')}
-            className={`px-3 py-1.5 rounded-full border cursor-pointer ${
-              geoLevel === 'national' ? 'bg-emerald-500 text-black font-bold border-emerald-400' : 'glass-panel-subtle text-neutral-300'
-            }`}
-          >
-            India
-          </button>
-          <ChevronRight className="w-3.5 h-3.5 text-neutral-500" />
-          <button
-            onClick={() => setGeoLevel('state')}
-            className={`px-3 py-1.5 rounded-full border cursor-pointer ${
-              geoLevel === 'state' ? 'bg-emerald-500 text-black font-bold border-emerald-400' : 'glass-panel-subtle text-neutral-300'
-            }`}
-          >
-            State (UP)
-          </button>
-          <ChevronRight className="w-3.5 h-3.5 text-neutral-500" />
-          <button
-            onClick={() => setGeoLevel('district')}
-            className={`px-3 py-1.5 rounded-full border cursor-pointer ${
-              geoLevel === 'district' ? 'bg-emerald-500 text-black font-bold border-emerald-400' : 'glass-panel-subtle text-neutral-300'
-            }`}
-          >
-            Pratapgarh
-          </button>
-          <ChevronRight className="w-3.5 h-3.5 text-neutral-500" />
-          <button
-            onClick={() => setGeoLevel('village')}
-            className={`px-3 py-1.5 rounded-full border cursor-pointer ${
-              geoLevel === 'village' ? 'bg-emerald-500 text-black font-bold border-emerald-400' : 'glass-panel-subtle text-neutral-300'
-            }`}
-          >
-            4 Villages Cluster
-          </button>
+          {(
+            [
+              { id: 'national', label: 'India' },
+              { id: 'state', label: 'UP' },
+              { id: 'district', label: 'Pratapgarh' },
+              { id: 'block', label: 'Sadar Block' },
+              { id: 'village', label: 'Pure Gosai' },
+              { id: 'farm', label: 'Ayush Farm' },
+            ] as { id: GeoLevel; label: string }[]
+          ).map((item, idx) => (
+            <React.Fragment key={item.id}>
+              {idx > 0 && <ChevronRight className="w-3.5 h-3.5 text-neutral-500" />}
+              <button
+                onClick={() => handleLevelChange(item.id)}
+                className={`px-3 py-1.5 rounded-full border cursor-pointer transition-all ${
+                  geoLevel === item.id
+                    ? 'bg-emerald-500 text-black font-bold border-emerald-400 shadow-md'
+                    : 'glass-panel-subtle text-neutral-300 hover:border-emerald-500/40'
+                }`}
+              >
+                {item.label}
+              </button>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* Dynamic Jurisdiction Banner showing live state of active level */}
+      <div className="p-5 rounded-2xl bg-black/60 border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block">
+            CURRENT TELEMETRY SCOPE: {currentLevelData.scopeTag}
+          </span>
+          <div className="text-xl font-display font-bold text-white mt-0.5">
+            {currentLevelData.fullName}
+          </div>
+          <p className="text-xs text-neutral-300 mt-1">
+            {currentLevelData.directive}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-4 shrink-0 font-mono text-xs">
+          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-center min-w-[110px]">
+            <span className="text-[10px] text-neutral-400 block">CROP RISK</span>
+            <span className={`text-lg font-bold ${
+              currentLevelData.cropRisk > 60 ? 'text-red-400' : 'text-emerald-300'
+            }`}>
+              {currentLevelData.cropRisk} / 100
+            </span>
+          </div>
+          <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/20 text-center min-w-[110px]">
+            <span className="text-[10px] text-neutral-400 block">HOTSPOTS</span>
+            <span className="text-lg font-bold text-cyan-300">{currentLevelData.diseaseHotspots} Active</span>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/20 text-center min-w-[120px]">
+            <span className="text-[10px] text-neutral-400 block">SENTINEL-2 NDVI</span>
+            <span className="text-lg font-bold text-amber-300">{currentLevelData.activeNDVI}</span>
+          </div>
         </div>
       </div>
 

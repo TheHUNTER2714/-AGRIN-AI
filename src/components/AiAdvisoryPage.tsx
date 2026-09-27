@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Mic, 
-  Camera, 
   Send, 
   Volume2, 
   CheckCircle2, 
@@ -10,25 +8,13 @@ import {
   ShieldAlert, 
   Sparkles, 
   CornerDownRight,
-  Satellite,
-  CloudSun,
-  FlaskConical,
-  Sprout,
   Layers,
-  FileCheck
+  FileCheck,
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
-
-interface AdvisoryResponse {
-  query: string;
-  answer: string;
-  why: string;
-  dataUsed: { source: string; value: string }[];
-  action: string;
-  confidence: number;
-  limitations: string;
-  hindiVoiceText?: string;
-}
+import { fetchAgroAdvisory, type AdvisoryResponse } from '../services/api';
 
 interface AiAdvisoryPageProps {
   onOpenWhyModal?: () => void;
@@ -40,109 +26,89 @@ export const AiAdvisoryPage: React.FC<AiAdvisoryPageProps> = ({ onOpenWhyModal }
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [activePipelineStep, setActivePipelineStep] = useState<number>(3); // Gemini reasoning
 
-  const presetResponses: Record<string, AdvisoryResponse> = {
-    irrigation: {
-      query: 'Should I irrigate my Plot A Sharbati Wheat field tomorrow morning?',
-      answer: 'Hold irrigation completely for the next 48 hours. Heavy rain is imminent.',
-      why: 'Doppler radar and European ensemble models indicate a 82% probability of 32–38mm convective rainfall across Pratapgarh starting at 02:00 AM. Irrigating now would saturate the root zone, trigger lodging, and waste ₹1,200 in diesel pumping energy.',
-      dataUsed: [
-        { source: 'IMD & ECMWF Radar', value: '35mm rain probability: 82%' },
-        { source: 'Sub-surface Soil Sensor', value: 'Moisture at 15cm: 28% (Adequate)' },
-        { source: 'Sentinel-2 NDVI', value: 'Mean Vigour: 0.78 (Optimum)' },
-        { source: 'Evapotranspiration (ET0)', value: '3.1 mm/day (Low demand)' },
-      ],
-      action: '1. Delay tube-well pump startup. 2. Ensure field drainage channels are clear of silt. 3. Re-evaluate post-rainfall on Sep 29.',
-      confidence: 94.6,
-      limitations: 'Advisory valid for convective rainfall within 25km radius. In the event rainfall fails to materialize by Sep 29 18:00, resume light furrow irrigation.',
-      hindiVoiceText: 'अगले 48 घंटों तक गेहूं की सिंचाई रोक दें। 35 मिमी वर्षा की प्रबल संभावना है। सिंचाई करने से फसल गिरने और धन की बर्बादी का जोखिम है।',
-    },
-    urea: {
-      query: 'When is the optimal window to apply the second dose of Urea on wheat?',
-      answer: 'Apply Urea (45 kg/ha) immediately after upcoming rainfall infiltrates the topsoil (estimated Sep 29 morning).',
-      why: 'Applying urea onto bone-dry soil causes ammonia volatilization loss up to 35%. Applying during heavy downpours causes runoff loss. The optimal window is damp soil 12 hours post-rain.',
-      dataUsed: [
-        { source: 'Soil Testing Lab', value: 'Available Nitrogen: 42 kg/ha (Deficient)' },
-        { source: 'Crop Growth Model', value: 'Tillering Stage (Day 26)' },
-        { source: 'Forecast Horizon', value: 'Clear skies starting Sep 29' },
-      ],
-      action: 'Broadcast neem-coated urea at dawn when soil moisture allows rapid dissolution into the rhizosphere.',
-      confidence: 97.2,
-      limitations: 'Do not mix with superphosphate. Use protective gloves.',
-      hindiVoiceText: 'वर्षा समाप्त होने के 12 घंटे बाद नम मिट्टी में 45 किलो प्रति हेक्टेयर नीम लेपित यूरिया का छिड़काव करें।',
-    },
-    pest: {
-      query: 'Yellow spots observed on mustard leaves. Is it aphids or white rust?',
-      answer: 'Primary diagnosis is Mustard Aphids (Lipaphis erysimi) early nymph infestation, not white rust.',
-      why: 'Spectral analysis of foliar reflectivity coupled with temperatures between 18°C–22°C creates peak aphid colony vectors. Underside foliage curling matches sap-sucking hemiptera behavior.',
-      dataUsed: [
-        { source: 'Vision Model ViT-H', value: 'Confidence: 91.8%' },
-        { source: 'Micro-climate Temp', value: 'Night: 16°C, Day: 24°C' },
-        { source: 'Foliar Relative Humidity', value: '78%' },
-      ],
-      action: 'Spray 5% Neem Seed Kernel Extract (NSKE) or Dimethoate 30% EC @ 1.5ml/L in calm evening air.',
-      confidence: 91.8,
-      limitations: 'Avoid spraying when honeybees are foraging in full daylight.',
-      hindiVoiceText: 'यह सरसों में माहू (एफिड) का शुरुआती प्रकोप है। शाम के समय 5 प्रतिशत नीम का अर्क छिड़कें।',
-    },
-  };
+  const [currentResponse, setCurrentResponse] = useState<AdvisoryResponse>({
+    advice: 'Hold irrigation completely for the next 48 hours. Convective rainfall is imminent.',
+    reasoning: 'Open-Meteo Doppler radar and IMD grid models indicate an 82% probability of 32–38mm convective rainfall across Pratapgarh starting within 14 hours. Current soil moisture at 15cm is 28% (adequate) and Sentinel-2 NDVI is steady at 0.78. Irrigating now would saturate the root zone, trigger crop lodging, and waste ₹1,200 in diesel pumping energy.',
+    confidence: 0.95,
+    action_items: [
+      '1. Delay tube-well / diesel pump startup for 48 hours.',
+      '2. Ensure field perimeter drainage channels are clear of silt.',
+      '3. Re-evaluate topsoil moisture post-rainfall on Sep 29 before any top-dressing.'
+    ],
+    warnings: [
+      'Heavy convective wind gusts up to 28 km/h may accompany the 35mm precipitation event.'
+    ],
+    data_sources: [
+      'Sentinel-2 MSI MultiSpectral Telemetry (Pass 26 Sep 2026)',
+      'Open-Meteo Doppler Radar Grid Model',
+      'ICAR In-situ Soil Moisture Sensor (28% vol)',
+      'Google Gemini Agro Reasoning'
+    ],
+    timestamp: '27 Sep 2026, 14:30 IST',
+    mode: 'calibrated_model',
+    disclaimer: 'AI-generated preliminary advisory — field/agronomist confirmation recommended.'
+  });
 
-  const [activeResponse, setActiveResponse] = useState<AdvisoryResponse>(presetResponses.irrigation);
+  const [querySourceLabel, setQuerySourceLabel] = useState<string>('Live Intelligence Mode');
 
-  const pipelineSteps = [
-    { title: '1. Multi-Modal Ingestion', desc: 'Sentinel-2 + Radar + In-situ Soil sensors + Farmer photo', icon: Layers },
-    { title: '2. Data Validation', desc: 'Cloud mask filtering, sensor outlier removal, sanity checks', icon: FileCheck },
-    { title: '3. Context Fusion', desc: 'Agronomic Knowledge Graph & Crop Growth Stage matching', icon: Database },
-    { title: '4. Gemini Agro Reasoning', desc: 'Fine-tuned LLM synthesizes biological rationale', icon: Sparkles },
-    { title: '5. Action Prescription', desc: 'Vernacular text + audio + explainable "Why?" verification', icon: CheckCircle2 },
+  const exampleAdvisories = [
+    {
+      id: 'irrigation',
+      label: 'Irrigation Timing',
+      question: 'Should I irrigate my Plot A Sharbati Wheat field tomorrow morning?'
+    },
+    {
+      id: 'urea',
+      label: 'Urea Fertigation',
+      question: 'When is the optimal window to apply the second split dose of Urea on wheat?'
+    },
+    {
+      id: 'pest',
+      label: 'Pest Identification',
+      question: 'Yellowing detected along leaf edges in Plot B mustard. How to treat?'
+    }
   ];
 
-  const handleSelectQuery = (key: 'irrigation' | 'urea' | 'pest') => {
-    soundFx.playClick();
+  const handleConsultAdvisor = async (queryText: string, isExample = false) => {
+    if (!queryText.trim()) return;
+
+    soundFx.playScanTone();
     setIsProcessing(true);
-    setTimeout(() => {
-      setActiveResponse(presetResponses[key]);
-      setIsProcessing(false);
-      soundFx.playChime(640, 0.3);
-    }, 600);
-  };
+    setActivePipelineStep(1);
+    setQuerySourceLabel(isExample ? 'Example Advisory (Demo Benchmark)' : 'Live Gemini Inference');
 
-  const handleSubmitCustom = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
+    // Simulate animated pipeline progression
+    const stepInterval = setInterval(() => {
+      setActivePipelineStep((prev) => (prev < 4 ? prev + 1 : prev));
+    }, 400);
 
-    soundFx.playClick();
-    setIsProcessing(true);
-    const query = inputText;
-    setInputText('');
-
-    setTimeout(() => {
-      setActiveResponse({
-        query: query,
-        answer: `Comprehensive agronomic synthesis for: "${query}". Based on live sensor data, soil condition is stable and crop development is progressing normally.`,
-        why: 'In-situ sensor telemetry from Pratapgarh combined with Sentinel-2 spectral vegetation curves indicate low drought stress and high nitrogen absorption efficiency.',
-        dataUsed: [
-          { source: 'Ayush Farm IoT Gateway', value: 'Soil Moisture 28%, Temp 24°C' },
-          { source: 'Sentinel-2 B8/B4', value: 'NDVI 0.78' },
-          { source: 'Agronomic Vector DB', value: 'Matches UP Wheat Protocol 2026' },
-        ],
-        action: 'Maintain regular field inspections every 3 days. Ensure bunds are intact for rainwater harvesting.',
-        confidence: 93.4,
-        limitations: 'Calculated using 48-hour forward projection.',
-        hindiVoiceText: 'आपके खेत की स्थिति सामान्य है। अगले 3 दिनों में फसल का सामान्य निरीक्षण करें।',
+    try {
+      const res = await fetchAgroAdvisory({
+        question: queryText,
+        crop: 'Sharbati Wheat (Triticum aestivum)',
+        growth_stage: 'Vegetative Tillering',
+        soil: { ph: 7.4, nitrogen: 185, potassium: 340, moisture: 28 },
+        weather: { temperature: 28.4, rain_prob: 82, rain_mm: 35.0 },
+        satellite: { ndvi: 0.78, ndwi: 0.32 }
       });
+
+      clearInterval(stepInterval);
+      setActivePipelineStep(4);
+      setCurrentResponse(res);
+      soundFx.playChime(640, 0.35);
+    } catch {
+      clearInterval(stepInterval);
+    } finally {
       setIsProcessing(false);
-      soundFx.playChime(640, 0.3);
-    }, 1200);
+    }
   };
 
-  const handleSpeakResponse = () => {
-    if ('speechSynthesis' in window) {
-      soundFx.playClick();
-      setIsSpeaking(true);
+  const handleSpeak = () => {
+    soundFx.playClick();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const textToSpeak = activeResponse.hindiVoiceText || activeResponse.answer;
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = activeResponse.hindiVoiceText ? 'hi-IN' : 'en-US';
+      setIsSpeaking(true);
+      const utterance = new SpeechSynthesisUtterance(currentResponse.advice);
       utterance.rate = 0.95;
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
@@ -152,223 +118,154 @@ export const AiAdvisoryPage: React.FC<AiAdvisoryPageProps> = ({ onOpenWhyModal }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Top Banner */}
       <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 mb-1">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>GEMINI AGRONOMIC MULTIMODAL INTELLIGENCE</span>
+            <span>GEMINI AGRO-INTELLIGENCE REASONING ENGINE</span>
             <span>•</span>
-            <span>TRANSPARENT REASONING ARCHITECTURE</span>
+            <span className="text-zinc-400">CONTEXT FUSION</span>
           </div>
           <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-[#F9F8F3]">
-            AI Agricultural Advisor
+            AI Agro-Advisor
           </h1>
           <p className="text-sm text-neutral-300 font-light mt-1">
-            Ask any question about your farm. AgriN displays every premise, sensor value, and rationale.
+            Synthesizes farm telemetry, Doppler radar forecasts, and ICAR soil chemistry into explainable farmer guidance.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <div className="px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>GROUNDED IN AYUSH FARM TELEMETRY</span>
+        <div className="flex items-center gap-3 font-mono text-xs">
+          <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
+            <span className="text-neutral-400 block text-[10px]">REASONING CORE</span>
+            <span className="text-emerald-300 font-bold">Gemini 2.5 Flash</span>
           </div>
-        </div>
-      </div>
-
-      {/* FEATURE 13: AI MODEL TRANSPARENCY & DATA PROVENANCE PIPELINE */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/20 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-emerald-400 uppercase tracking-widest font-bold">
-              FEATURE 13 &bull; AI MODEL TRANSPARENCY PIPELINE
+          <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
+            <span className="text-neutral-400 block text-[10px]">CONFIDENCE</span>
+            <span className="text-lime-300 font-bold">
+              {(currentResponse.confidence * 100).toFixed(1)}%
             </span>
           </div>
-          <span className="text-[10px] font-mono text-neutral-400">
-            Audit-Ready Data Provenance
+        </div>
+      </div>
+
+      {/* Feature 13: End-to-End AI Model Transparency Pipeline */}
+      <div className="glass-panel rounded-3xl p-6 border border-emerald-500/20 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono uppercase tracking-widest text-emerald-400 flex items-center gap-2">
+            <Database className="w-4 h-4 text-emerald-400" />
+            FEATURE 13 • 5-STAGE AI MODEL TRANSPARENCY & DATA PROVENANCE
           </span>
+          <span className="text-xs font-mono text-neutral-400">Verifiable Reasoning</span>
         </div>
 
-        {/* Input Data Sources Ribbon */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2">
-            <Satellite className="w-4 h-4 text-cyan-400 shrink-0" />
-            <span className="text-[11px] text-neutral-300">🛰 Sentinel-2</span>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2">
-            <CloudSun className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-[11px] text-neutral-300">🌦 IMD Doppler</span>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2">
-            <FlaskConical className="w-4 h-4 text-teal-400 shrink-0" />
-            <span className="text-[11px] text-neutral-300">🧪 Soil Sensors</span>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2">
-            <Sprout className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span className="text-[11px] text-neutral-300">🌱 Crop Phenology</span>
-          </div>
-          <div className="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center gap-2">
-            <Camera className="w-4 h-4 text-lime-400 shrink-0" />
-            <span className="text-[11px] text-neutral-300">📷 Farmer Photos</span>
-          </div>
-        </div>
-
-        {/* The 5-Step Reasoning Chain */}
-        <div className="p-4 rounded-2xl bg-black/50 border border-white/10">
-          <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2 no-scrollbar font-mono text-[11px]">
-            {pipelineSteps.map((step, idx) => {
-              const StepIcon = step.icon;
-              const isSelected = activePipelineStep === idx;
-              return (
-                <div
-                  key={step.title}
-                  onClick={() => {
-                    soundFx.playClick();
-                    setActivePipelineStep(idx);
-                  }}
-                  className={`p-2.5 rounded-xl cursor-pointer transition-all border whitespace-nowrap shrink-0 flex items-center gap-2 ${
-                    isSelected
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold'
-                      : 'border-white/5 text-neutral-400 hover:text-white'
-                  }`}
-                >
-                  <StepIcon className="w-3.5 h-3.5" />
-                  <span>{step.title}</span>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          {[
+            { step: '1. Ingestion', desc: 'Sentinel-2 + Weather + Soil', icon: Layers },
+            { step: '2. Validation', desc: 'Cloud mask & range audit', icon: FileCheck },
+            { step: '3. Context Fusion', desc: 'Agronomic Knowledge Graph', icon: Database },
+            { step: '4. Gemini Reasoning', desc: 'Biological logic synthesis', icon: Sparkles },
+            { step: '5. Prescription', desc: 'Actionable farmer protocol', icon: CheckCircle2 }
+          ].map((p, idx) => {
+            const Icon = p.icon;
+            const isActive = activePipelineStep >= idx;
+            return (
+              <div 
+                key={idx}
+                className={`p-3.5 rounded-2xl border text-left transition-all ${
+                  activePipelineStep === idx
+                    ? 'bg-emerald-950/70 border-emerald-400 shadow-md'
+                    : isActive
+                    ? 'bg-black/40 border-emerald-500/30'
+                    : 'bg-black/20 border-white/5 opacity-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-mono text-neutral-400">0{idx + 1}</span>
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-neutral-500'}`} />
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-2 text-xs text-neutral-300 font-sans pl-1">
-            <strong>Active Pipeline Stage:</strong> {pipelineSteps[activePipelineStep].desc}
-          </div>
+                <div className="text-xs font-bold text-white mb-0.5">{p.step}</div>
+                <div className="text-[10px] text-neutral-400">{p.desc}</div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Preset Farmer Inquiries */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <span className="text-xs font-mono text-neutral-400">FREQUENT AGRONOMIC INQUIRIES:</span>
-        <div className="flex flex-wrap gap-2">
+      {/* Query Bar and Example Benchmarks */}
+      <div className="space-y-3">
+        {/* Interactive Query Input */}
+        <div className="glass-panel p-2.5 rounded-3xl border border-emerald-500/30 flex items-center gap-3">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleConsultAdvisor(inputText)}
+            placeholder="Ask AgriN (e.g. 'Should I irrigate Plot A tomorrow morning?')"
+            className="flex-1 bg-transparent px-4 py-2 text-sm text-white placeholder-neutral-500 outline-none"
+          />
           <button
-            onClick={() => handleSelectQuery('irrigation')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-medium glass-panel-subtle hover:border-emerald-500/40 text-emerald-300 hover:text-white transition-all cursor-pointer"
+            onClick={() => handleConsultAdvisor(inputText)}
+            disabled={isProcessing || !inputText.trim()}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition-all cursor-pointer shadow-md disabled:opacity-50"
           >
-            &ldquo;Should I irrigate tomorrow?&rdquo;
+            {isProcessing ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span>{isProcessing ? 'Thinking...' : 'Consult Advisor'}</span>
           </button>
-          <button
-            onClick={() => handleSelectQuery('urea')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-medium glass-panel-subtle hover:border-emerald-500/40 text-emerald-300 hover:text-white transition-all cursor-pointer"
-          >
-            &ldquo;Optimal window for Urea dose?&rdquo;
-          </button>
-          <button
-            onClick={() => handleSelectQuery('pest')}
-            className="px-3.5 py-1.5 rounded-full text-xs font-medium glass-panel-subtle hover:border-emerald-500/40 text-emerald-300 hover:text-white transition-all cursor-pointer"
-          >
-            &ldquo;Mustard foliar spotting diagnosis?&rdquo;
-          </button>
+        </div>
+
+        {/* Example Advisories (Clearly Labeled as Demo Benchmarks) */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-neutral-400 font-mono text-[11px] flex items-center gap-1">
+            <Info className="w-3 h-3 text-emerald-400" />
+            EXAMPLE ADVISORY (DEMO BENCHMARK):
+          </span>
+          {exampleAdvisories.map((ex) => (
+            <button
+              key={ex.id}
+              onClick={() => {
+                setInputText(ex.question);
+                handleConsultAdvisor(ex.question, true);
+              }}
+              className="px-3 py-1 rounded-full glass-panel-subtle hover:border-emerald-400 text-neutral-300 text-xs transition-all cursor-pointer"
+            >
+              {ex.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Interactive Input Capsule */}
-      <div className="glass-card-interactive rounded-3xl p-6 sm:p-8 border border-emerald-500/30">
-        <form onSubmit={handleSubmitCustom} className="space-y-4">
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask anything about your wheat, mustard, soil fertility, or weather..."
-              className="w-full py-4 pl-5 pr-32 rounded-2xl bg-black/50 border border-emerald-500/30 text-[#ECE8DD] placeholder-neutral-500 text-sm focus:outline-none focus:border-emerald-400 transition-all font-sans"
-            />
-
-            <div className="absolute right-3 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleSelectQuery('irrigation')}
-                title="Speak vernacular Hindi/English"
-                className="p-2.5 rounded-xl glass-panel-subtle hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer"
-              >
-                <Mic className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectQuery('pest')}
-                title="Attach Crop Leaf Photo"
-                className="p-2.5 rounded-xl glass-panel-subtle hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="p-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold transition-all cursor-pointer shadow-md"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      {/* Structured Transparent AI Reasoning Model */}
-      <div className="glass-panel rounded-3xl p-6 sm:p-10 border border-emerald-500/20 space-y-8">
-        {/* User Question */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-6 border-b border-white/10">
+      {/* Main Advisory Result Card */}
+      <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-emerald-500/30 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-mono text-neutral-400 uppercase">INQUIRY:</span>
-            <h2 className="font-display font-bold text-2xl text-[#F9F8F3] mt-1">
-              &ldquo;{activeResponse.query}&rdquo;
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono uppercase tracking-wider text-emerald-400">
+                RECOMMENDED ACTION
+              </span>
+              <span className="text-[10px] font-mono bg-black/50 text-neutral-400 px-2.5 py-0.5 rounded-full border border-white/10">
+                {querySourceLabel}
+              </span>
+            </div>
+            <h2 className="font-display font-extrabold text-2xl text-white mt-1">
+              {currentResponse.advice}
             </h2>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {onOpenWhyModal && (
-              <button
-                onClick={() => {
-                  soundFx.playClick();
-                  onOpenWhyModal();
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-mono cursor-pointer transition-all hover:scale-105"
-              >
-                <HelpCircle className="w-4 h-4 text-emerald-400" />
-                <span>Explain Why? (XAI)</span>
-              </button>
-            )}
-
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleSpeakResponse}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-medium cursor-pointer transition-all ${
-                isSpeaking
-                  ? 'bg-emerald-500 text-black border-emerald-400'
-                  : 'glass-panel-subtle border-emerald-500/30 text-emerald-300 hover:text-white'
+              onClick={handleSpeak}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full glass-panel-subtle hover:border-emerald-400 text-emerald-300 text-xs font-semibold cursor-pointer transition-all ${
+                isSpeaking ? 'bg-emerald-500/20 border-emerald-400 animate-pulse' : ''
               }`}
             >
               <Volume2 className="w-4 h-4" />
-              <span>{isSpeaking ? 'Speaking in Hindi...' : 'Listen in Hindi'}</span>
+              <span>{isSpeaking ? 'Speaking...' : 'Listen Audio'}</span>
             </button>
-          </div>
-        </div>
-
-        {/* 1. Direct Answer */}
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-black/60 border border-emerald-500/30 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-400">
-            <CheckCircle2 className="w-4 h-4" />
-            <span>AGRONOMIC PRESCRIPTION:</span>
-          </div>
-          <p className="text-lg sm:text-xl font-display font-bold text-[#F9F8F3] leading-snug">
-            {activeResponse.answer}
-          </p>
-        </div>
-
-        {/* 2. "Why?" (Underlying Science) with direct Why button */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold uppercase">
-              <HelpCircle className="w-4 h-4" />
-              <span>WHY? (UNDERLYING AGRONOMIC RATIONALE)</span>
-            </div>
 
             {onOpenWhyModal && (
               <button
@@ -376,53 +273,62 @@ export const AiAdvisoryPage: React.FC<AiAdvisoryPageProps> = ({ onOpenWhyModal }
                   soundFx.playClick();
                   onOpenWhyModal();
                 }}
-                className="text-xs font-mono text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs cursor-pointer transition-all shadow-md"
               >
-                <span>View Full Factor Breakdown &rarr;</span>
+                <HelpCircle className="w-4 h-4" />
+                <span>Explain Why?</span>
               </button>
             )}
           </div>
-          <p className="text-sm text-neutral-200 leading-relaxed font-light p-4 rounded-xl bg-black/30 border border-white/5">
-            {activeResponse.why}
+        </div>
+
+        {/* Explainable AI Reasoning */}
+        <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-2 text-xs">
+          <div className="font-mono text-emerald-400 flex items-center gap-1.5 font-bold">
+            <CornerDownRight className="w-4 h-4 text-emerald-400" />
+            AI EXPLAINABLE SCIENTIFIC REASONING:
+          </div>
+          <p className="text-neutral-200 leading-relaxed font-light">
+            {currentResponse.reasoning}
           </p>
         </div>
 
-        {/* 3. "Data Used" */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold uppercase">
-            <Database className="w-4 h-4" />
-            <span>DATASETS & SENSOR VALUES SYNTHESIZED</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {activeResponse.dataUsed.map((d, i) => (
-              <div key={i} className="p-4 rounded-xl bg-black/40 border border-white/5 font-mono text-xs">
-                <span className="text-neutral-400 text-[10px] block mb-1 uppercase">{d.source}</span>
-                <span className="text-emerald-300 font-semibold">{d.value}</span>
+        {/* Action Items List */}
+        <div className="space-y-2">
+          <span className="text-xs font-mono text-neutral-400 block">STEP-BY-STEP ACTION PROTOCOL:</span>
+          <div className="space-y-1.5 text-xs text-neutral-200">
+            {currentResponse.action_items.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-2.5 p-3 rounded-xl bg-black/30 border border-white/5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>{item}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 4. "Recommended Action" */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 font-bold uppercase">
-            <CornerDownRight className="w-4 h-4" />
-            <span>STEP-BY-STEP ACTION PROTOCOL</span>
+        {/* Agronomic Risk Warnings */}
+        {currentResponse.warnings.length > 0 && (
+          <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2.5">
+            <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-amber-300">Weather & Operational Warning:</span>{' '}
+              {currentResponse.warnings.join(' ')}
+            </div>
           </div>
-          <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-500/20 text-xs sm:text-sm text-emerald-200 font-medium leading-relaxed">
-            {activeResponse.action}
-          </div>
-        </div>
+        )}
 
-        {/* 5. "Confidence & Limitations" */}
-        <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs font-mono text-neutral-400">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-amber-400" />
-            <span>LIMITATIONS: {activeResponse.limitations}</span>
+        {/* Telemetry Data Provenance Badges */}
+        <div className="pt-3 border-t border-white/5 flex flex-wrap items-center justify-between text-xs font-mono text-neutral-400 gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>DATA USED:</span>
+            {currentResponse.data_sources.map((src, i) => (
+              <span key={i} className="px-2 py-0.5 rounded-md bg-black/40 border border-white/10 text-emerald-400 text-[10px]">
+                {src}
+              </span>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span>MODEL CONFIDENCE:</span>
-            <span className="text-emerald-400 font-bold text-sm">{activeResponse.confidence}%</span>
+          <div>
+            <span>TIMESTAMP: {currentResponse.timestamp}</span>
           </div>
         </div>
       </div>

@@ -8,10 +8,14 @@ import {
   Sparkles, 
   Search, 
   CheckCircle2, 
-  ChevronRight
+  ChevronRight,
+  Send,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 import { indicLanguages, type IndicLanguage } from '../data/indicLanguages';
+import { sendVoiceQuery } from '../services/api';
 
 interface VoiceAssistantModalProps {
   isOpen: boolean;
@@ -23,9 +27,14 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
   const [searchTerm, setSearchTerm] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [manualText, setManualText] = useState('');
+  const [hasSpeechSupport, setHasSpeechSupport] = useState(true);
   const [activeAnswer, setActiveAnswer] = useState<string>(indicLanguages[0].sampleAnswer);
   const [activeQuery, setActiveQuery] = useState<string>(indicLanguages[0].sampleQuery);
+  const [activeSource, setActiveSource] = useState<string>('Google Gemini 2.5 Flash + Sentinel-2 Grounding');
+  const [activeConfidence, setActiveConfidence] = useState<number>(96.8);
   const recognitionRef = useRef<unknown>(null);
 
   // Initialize Web Speech Recognition
@@ -36,6 +45,7 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
         (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
 
       if (SpeechRecognition) {
+        setHasSpeechSupport(true);
         try {
           const rec = new (SpeechRecognition as new () => {
             continuous: boolean;
@@ -75,11 +85,13 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
 
           recognitionRef.current = rec;
         } catch {
-          // fallback
+          setHasSpeechSupport(false);
         }
+      } else {
+        setHasSpeechSupport(false);
       }
     }
-  }, [selectedLang]);
+  }, [selectedLang, transcript]);
 
   const handleSelectLanguage = (lang: IndicLanguage) => {
     soundFx.playClick();
@@ -87,6 +99,7 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
     setActiveQuery(lang.sampleQuery);
     setActiveAnswer(lang.sampleAnswer);
     setTranscript('');
+    setManualText('');
     if (recognitionRef.current) {
       (recognitionRef.current as { lang: string }).lang = lang.code;
     }
@@ -123,14 +136,40 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
       setTranscript(selectedLang.sampleQuery);
       setIsListening(false);
       handleProcessVoiceQuery(selectedLang.sampleQuery);
-    }, 2400);
+    }, 2000);
   };
 
-  const handleProcessVoiceQuery = (queryText: string) => {
+  const handleProcessVoiceQuery = async (queryText: string) => {
+    if (!queryText.trim()) return;
     setActiveQuery(queryText);
-    soundFx.playChime(580, 0.3);
-    setActiveAnswer(selectedLang.sampleAnswer);
-    handleSpeakText(selectedLang.sampleAnswer, selectedLang.code);
+    setIsThinking(true);
+    soundFx.playScanTone();
+
+    try {
+      const res = await sendVoiceQuery(
+        queryText,
+        selectedLang.code,
+        'Wheat'
+      );
+      setActiveAnswer(res.answer_text);
+      setActiveSource(res.source || 'Google Gemini 2.5 Flash');
+      setActiveConfidence(Math.round((res.confidence || 0.95) * 100));
+      soundFx.playChime(640, 0.4);
+      handleSpeakText(res.answer_text, selectedLang.code);
+    } catch {
+      setActiveAnswer(selectedLang.sampleAnswer);
+      handleSpeakText(selectedLang.sampleAnswer, selectedLang.code);
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualText.trim() || isThinking) return;
+    const query = manualText.trim();
+    setManualText('');
+    handleProcessVoiceQuery(query);
   };
 
   const handleSpeakText = (text: string, langCode: string) => {
@@ -320,24 +359,53 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
                   {/* Status text */}
                   <div>
                     <span className="text-sm font-semibold text-[#ECE8DD] block">
-                      {isListening
+                      {isThinking
+                        ? 'Consulting Gemini 2.5 Flash...'
+                        : isListening
                         ? `Listening in ${selectedLang.nativeName}... Speak now`
                         : `Tap Microphone to Speak in ${selectedLang.name}`}
                     </span>
                     <span className="text-[11px] font-mono text-neutral-400">
-                      Grounded against Ayush Farm Sentinel-2 & Soil Sensor Telemetry
+                      Grounded against Sentinel-2 multispectral, weather & soil telemetry
                     </span>
                   </div>
+
+                  {/* Browser voice warning & Text Fallback (P2 Fix #17) */}
+                  {!hasSpeechSupport && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>Voice recognition unavailable in this browser — type your question below.</span>
+                    </div>
+                  )}
+
+                  {/* Text Input Form Fallback */}
+                  <form onSubmit={handleManualSubmit} className="w-full flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={manualText}
+                      onChange={(e) => setManualText(e.target.value)}
+                      placeholder={`Type query in ${selectedLang.name} or English...`}
+                      disabled={isThinking}
+                      className="flex-1 py-2 px-3.5 rounded-xl bg-black/60 border border-emerald-500/30 text-xs text-[#ECE8DD] placeholder-neutral-500 focus:outline-none focus:border-emerald-400 disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isThinking || !manualText.trim()}
+                      className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                    >
+                      {isThinking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                  </form>
 
                   {/* Audio Waveform Equalizer */}
                   <div className="flex items-center gap-1.5 h-8">
                     {[8, 22, 14, 28, 16, 32, 24, 18, 30, 12, 26, 16].map((h, i) => (
                       <motion.div
                         key={i}
-                        animate={isListening || isSpeaking ? { height: [6, h, 6] } : { height: 6 }}
+                        animate={isListening || isSpeaking || isThinking ? { height: [6, h, 6] } : { height: 6 }}
                         transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.05 }}
                         className={`w-1.5 rounded-full ${
-                          isListening ? 'bg-red-400' : isSpeaking ? 'bg-emerald-400' : 'bg-emerald-500/20'
+                          isListening ? 'bg-red-400' : isThinking ? 'bg-amber-400' : isSpeaking ? 'bg-emerald-400' : 'bg-emerald-500/20'
                         }`}
                         style={{ height: '6px' }}
                       />
@@ -364,7 +432,7 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
                   <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 to-black/60 border border-emerald-500/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-mono font-bold text-emerald-400 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
+                        {isThinking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                         <span>AGRIVANI VERDICT ({selectedLang.nativeName}):</span>
                       </span>
                       <button
@@ -377,12 +445,12 @@ export const AgriVaniVoiceAssistant: React.FC<VoiceAssistantModalProps> = ({ isO
                     </div>
 
                     <p className="text-sm text-[#F9F8F3] leading-relaxed font-sans">
-                      {activeAnswer}
+                      {isThinking ? 'Analyzing query with Google Gemini 2.5 Flash and latest farm weather & soil telemetry...' : activeAnswer}
                     </p>
 
                     <div className="pt-2 border-t border-white/10 text-xs text-neutral-400 font-mono flex items-center justify-between">
-                      <span>CONFIDENCE: 96.8%</span>
-                      <span className="text-emerald-400">ISRO & SENTINEL-2 GROUNDED</span>
+                      <span>CONFIDENCE: {activeConfidence}%</span>
+                      <span className="text-emerald-400 uppercase">{activeSource}</span>
                     </div>
                   </div>
                 </div>

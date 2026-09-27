@@ -118,13 +118,13 @@ export const BricsNetworkPage: React.FC = () => {
             <Globe2 className="w-4 h-4 text-emerald-400" />
             <span>BRICS MULTILATERAL AGRI-INTELLIGENCE COMPACT</span>
             <span>•</span>
-            <span>PRIVACY-PRESERVING FEDERATED LEARNING</span>
+            <span className="text-zinc-400">PROTOTYPE ARCHITECTURE</span>
           </div>
           <h1 className="font-display font-extrabold text-3xl sm:text-4xl text-[#F9F8F3]">
-            BRICS Model Exchange Hub
+            BRICS Agricultural Model Exchange
           </h1>
           <p className="text-sm text-neutral-300 font-light mt-1">
-            Interoperable cross-border sharing of agricultural AI models, climate pattern adapters, and sovereign datasets.
+            Prototype Architecture demonstrating privacy-preserving cross-border sharing of agricultural AI models and climate indicators.
           </p>
         </div>
 
