@@ -422,7 +422,7 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
         </div>
       </div>
 
-      {/* Preset Test Specimens for Judges */}
+      {/* Standard Reference Pathology Specimens */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <span className="text-xs font-mono text-neutral-400 flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> INSTANT SPECIMEN BENCHMARKS:

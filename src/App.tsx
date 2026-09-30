@@ -24,7 +24,6 @@ import { ExplainableWhyModal, type ExplainableWhyData } from './components/Expla
 import { NewLandRegistrationModal } from './components/NewLandRegistrationModal';
 import { SystemStatusModal } from './components/SystemStatusModal';
 import { DataProvenanceModal } from './components/DataProvenanceModal';
-import { JudgeModeModal } from './components/JudgeModeModal';
 import { 
   type RegisteredFarm, 
   fetchRegisteredFarms, 
@@ -96,8 +95,7 @@ export const App: React.FC = () => {
   const [provenanceModalOpen, setProvenanceModalOpen] = useState(false);
   const [provenanceCategory, setProvenanceCategory] = useState<string | undefined>(undefined);
 
-  // AgriN Guided Judge Mode & 14-Point Readiness Modal
-  const [judgeModalOpen, setJudgeModalOpen] = useState(false);
+
 
   const handleEnterDemoFarm = async () => {
     soundFx.playChime(640, 0.3);
@@ -409,8 +407,10 @@ export const App: React.FC = () => {
           setIsLandModalOpen(true);
         }}
         onEnterDemoFarm={handleEnterDemoFarm}
-        onOpenSystemStatus={() => setStatusModalOpen(true)}
-        onOpenJudgeMode={() => setJudgeModalOpen(true)}
+        onOpenSystemStatus={() => {
+          soundFx.playClick();
+          setStatusModalOpen(true);
+        }}
         onOpenProvenance={() => handleOpenProvenance()}
         alertCount={alerts.filter((a) => a.severity === 'high' || a.severity === 'medium').length}
       />
@@ -464,16 +464,6 @@ export const App: React.FC = () => {
         isOpen={provenanceModalOpen}
         onClose={() => setProvenanceModalOpen(false)}
         defaultCategory={provenanceCategory}
-      />
-
-      {/* AgriN Guided Evaluation & Judge Mode Modal */}
-      <JudgeModeModal
-        isOpen={judgeModalOpen}
-        onClose={() => setJudgeModalOpen(false)}
-        onNavigateToTab={(tab) => setActiveTab(tab)}
-        onOpenWhyModal={() => openWhyModalWithData()}
-        onOpenProvenance={() => handleOpenProvenance()}
-        onEnterDemoFarm={handleEnterDemoFarm}
       />
 
       {/* New Land Registration Modal (4-step real-data parcel intake) */}

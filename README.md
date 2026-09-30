@@ -295,9 +295,9 @@ Create `backend/.env` (reference: `backend/.env.example`):
 
 ---
 
-## 🎬 10. Recommended 4-Minute Judge Demo Script
+## 🎬 10. Recommended 4-Minute Interactive Platform Walkthrough
 
-Judges can click the **`JUDGE MODE`** button in the top navigation bar at any point to open the interactive guided walkthrough, or follow this 10-step sequence:
+Users and agronomists can open the **`⋮ Options`** (3-dot) menu in the top navigation bar at any point to access live Subsystem Status, Data Provenance, Farmer Consent, Ecosystem Impact, and Simple Farmer Mode, or follow this 10-step sequence:
 
 1. **0:00 – 0:20 (Entry & One-Click Demo Reset)**: Click **`DEMO FARM`** in the navigation bar. Instant initialization of the 14.2 ha Pratapgarh, UP Sharbati Wheat demo parcel.
 2. **0:20 – 0:45 (Live Weather Intelligence)**: Navigate to **Weather**. Point out transparent **Open-Meteo** branding, rain probability (72%), and agro-advisories.

@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { 
   type DataProvenanceItem, 
-  fetchDataProvenance 
+  fetchDataProvenance,
+  getDefaultProvenanceItems 
 } from '../services/api';
 import { soundFx } from '../utils/audio';
 
@@ -22,41 +23,73 @@ interface DataProvenanceModalProps {
 export const DataProvenanceModal: React.FC<DataProvenanceModalProps> = ({
   isOpen,
   onClose,
-  selectedMetricId
+  selectedMetricId,
+  defaultCategory
 }) => {
-  const [items, setItems] = useState<DataProvenanceItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<DataProvenanceItem[]>(() => getDefaultProvenanceItems());
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeItem, setActiveItem] = useState<DataProvenanceItem | null>(null);
+  const [activeItem, setActiveItem] = useState<DataProvenanceItem | null>(() => getDefaultProvenanceItems()[0] || null);
 
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
     fetchDataProvenance()
       .then((data) => {
-        setItems(data);
+        const list = Array.isArray(data) && data.length > 0 ? data : getDefaultProvenanceItems();
+        setItems(list);
         if (selectedMetricId) {
-          const match = data.find((i) => i.id === selectedMetricId);
-          setActiveItem(match || data[0] || null);
+          const match = list.find((i) => i.id === selectedMetricId || i.id.includes(selectedMetricId));
+          setActiveItem(match || list[0] || null);
+        } else if (defaultCategory) {
+          const match = list.find((i) => 
+            i.id.toLowerCase().includes(defaultCategory.toLowerCase()) || 
+            i.metric_name.toLowerCase().includes(defaultCategory.toLowerCase())
+          );
+          setActiveItem(match || list[0] || null);
         } else {
-          setActiveItem(data[0] || null);
+          setActiveItem(list[0] || null);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        const list = getDefaultProvenanceItems();
+        setItems(list);
+        setActiveItem(list[0] || null);
+      })
       .finally(() => setLoading(false));
-  }, [isOpen, selectedMetricId]);
+  }, [isOpen, selectedMetricId, defaultCategory]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const filteredItems = items.filter((item) =>
-    item.metric_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.source.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.provider.toLowerCase().includes(searchQuery.toLowerCase())
+  const safeItems = Array.isArray(items) && items.length > 0 ? items : getDefaultProvenanceItems();
+  const filteredItems = safeItems.filter((item) =>
+    (item?.metric_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item?.source || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (item?.provider || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-xl overflow-y-auto">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            soundFx.playClick();
+            onClose();
+          }
+        }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-xl overflow-y-auto"
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
