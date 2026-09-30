@@ -16,13 +16,17 @@ logger = logging.getLogger(__name__)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 # Centralized Gemini Model Configuration
-PRIMARY_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+PRIMARY_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite")
 FALLBACK_GEMINI_MODELS = [
     PRIMARY_GEMINI_MODEL,
+    "gemini-3.1-flash-lite",
+    "gemini-flash-lite-latest",
     "gemini-3.8-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-flash-latest"
+    "gemini-3.7-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash-image",
+    "gemini-flash-latest",
 ]
 # Unique ordered models
 GEMINI_MODELS = list(dict.fromkeys(FALLBACK_GEMINI_MODELS))
@@ -38,7 +42,11 @@ def get_gemini_client():
         logger.warning(f"Error initializing google-genai client: {e}")
         return None
 
-def parse_and_validate_crop_doctor_json(raw_text: str, crop_hint: str) -> Dict[str, Any]:
+def parse_and_validate_crop_doctor_json(
+    raw_text: str,
+    crop_hint: Optional[str] = None,
+    model_name: str = "gemini-3.8-flash"
+) -> Dict[str, Any]:
     """
     Safely parses and validates structured JSON output from Gemini Vision.
     Extracts all 12 required fields and handles code fences, whitespace, and type coercion.
@@ -157,10 +165,13 @@ def parse_and_validate_crop_doctor_json(raw_text: str, crop_hint: str) -> Dict[s
         "chemical_treatment": chem_treatments,
         "source_state": "LIVE",
         "mode": "live_gemini",
-        "disclaimer": "AI-generated preliminary diagnosis — field/agronomist confirmation recommended. Consult certified agronomists or local KVK before applying treatments.",
+        "model": f"Google {model_name} Multimodal",
+        "prompt_version": "AGRIN-VISION-v2",
+        "context_version": "FarmContext-v1",
+        "disclaimer": "PRELIMINARY AI DIAGNOSIS — Live Gemini Vision analysis. Field/agronomist confirmation recommended before applying high-potency treatments.",
         "timestamp": now_str,
         "data_sources": [
-            "Google Gemini Vision Multi-Modal Inference",
+            f"Google {model_name} Vision Multi-Modal Inference",
             "ICAR Plant Protection Repository",
             "CIBRC Approved Agrochemical Guidelines"
         ]

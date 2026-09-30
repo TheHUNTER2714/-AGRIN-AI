@@ -52,8 +52,16 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
 
   // View Mode: 'satellite' (True Color RGB), 'ndvi' (Canopy Vigor), 'moisture' (NDWI)
   const [viewMode, setViewMode] = useState<'satellite' | 'ndvi' | 'moisture'>('satellite');
+  // Google Maps Style Satellite Provider: 'google-hybrid' (Imagery + Roads/Labels), 'google-satellite' (Pure Satellite), 'esri-world' (Esri Ortho)
+  const [satelliteProvider, setSatelliteProvider] = useState<'google-hybrid' | 'google-satellite' | 'esri-world'>('google-hybrid');
   const [overlayOpacity, setOverlayOpacity] = useState(0.70);
-  const [zoomLevel, setZoomLevel] = useState(15); // Slippy zoom 13-17
+  const [zoomLevel, setZoomLevel] = useState(16); // Slippy zoom 13-18
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragDistance, setDragDistance] = useState(0);
+  const [mouseHoverCoords, setMouseHoverCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [showCadastre, setShowCadastre] = useState(true);
 
   // Farms list
   const availableFarms: RegisteredFarm[] = useMemo(() => {
@@ -173,7 +181,7 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
     setIsPlayingTimeline(false);
   };
 
-  // --- Real Satellite Imagery Slippy Map Grid Math ---
+  // --- Real Satellite Imagery Slippy Map Grid Math (Google Maps & Esri) ---
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // Compute tile coordinates for the farm center
@@ -187,7 +195,7 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
     const offsetX = (xFloat - centerTileX) * 256;
     const offsetY = (yFloat - centerTileY) * 256;
 
-    // 3x3 grid around center tile
+    // 5x5 grid around center tile for smooth Google Maps style panning
     const tiles: Array<{
       key: string;
       dx: number;
@@ -198,14 +206,26 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
       fallbackUrl: string;
     }> = [];
 
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
         const tx = centerTileX + dx;
         const ty = centerTileY + dy;
-        const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoomLevel}/${ty}/${tx}`;
-        const fallbackUrl = `https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/${zoomLevel}/${ty}/${tx}`;
+        let url = '';
+        let fallbackUrl = '';
+
+        if (satelliteProvider === 'google-hybrid') {
+          url = `https://mt1.google.com/vt/lyrs=y&x=${tx}&y=${ty}&z=${zoomLevel}`;
+          fallbackUrl = `https://mt2.google.com/vt/lyrs=y&x=${tx}&y=${ty}&z=${zoomLevel}`;
+        } else if (satelliteProvider === 'google-satellite') {
+          url = `https://mt1.google.com/vt/lyrs=s&x=${tx}&y=${ty}&z=${zoomLevel}`;
+          fallbackUrl = `https://mt0.google.com/vt/lyrs=s&x=${tx}&y=${ty}&z=${zoomLevel}`;
+        } else {
+          url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoomLevel}/${ty}/${tx}`;
+          fallbackUrl = `https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/${zoomLevel}/${ty}/${tx}`;
+        }
+
         tiles.push({
-          key: `${zoomLevel}-${tx}-${ty}`,
+          key: `${satelliteProvider}-${zoomLevel}-${tx}-${ty}`,
           dx,
           dy,
           tx,
@@ -217,21 +237,30 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
     }
 
     return { centerTileX, centerTileY, offsetX, offsetY, tiles };
-  }, [latitude, longitude, zoomLevel]);
+  }, [latitude, longitude, zoomLevel, satelliteProvider]);
+
+  // Dynamic Google Maps scale bar: 70px represents N meters
+  const scaleMeters = useMemo(() => {
+    const metersPerPixel = (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoomLevel);
+    const total = metersPerPixel * 70;
+    if (total >= 1000) {
+      return `${(total / 1000).toFixed(1)} km`;
+    }
+    return `${Math.round(total)} m`;
+  }, [latitude, zoomLevel]);
 
   // Convert farm cadastral polygon to SVG path coords relative to viewport
   const polygonPointsSvg = useMemo(() => {
     if (!selectedFarm?.polygon_boundary || selectedFarm.polygon_boundary.length < 3) {
       return '';
     }
-    // Calculate meters per pixel at this latitude and zoom
     const metersPerPixel = (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoomLevel);
     const degLatPerMeter = 1 / 111320;
     const degLonPerMeter = 1 / (111320 * Math.cos((latitude * Math.PI) / 180));
 
-    // Center of viewport in pixels (assuming standard 768x400 container center)
-    const centerX = 384;
-    const centerY = 200;
+    // Center of viewport in pixels (assuming container center at 50% width and 240px height + panOffset)
+    const centerX = 384 + panOffset.x;
+    const centerY = 230 + panOffset.y;
 
     return selectedFarm.polygon_boundary.map(([pLat, pLon]) => {
       const dLat = pLat - latitude;
@@ -242,10 +271,77 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
       const py = centerY - (dYMeters / metersPerPixel);
       return `${px.toFixed(1)},${py.toFixed(1)}`;
     }).join(' ');
-  }, [selectedFarm, latitude, longitude, zoomLevel]);
+  }, [selectedFarm, latitude, longitude, zoomLevel, panOffset]);
 
-  // Click on raster viewport for 10m Ground Sample inspection
+  // Drag and Pan Event Handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setDragDistance(0);
+    setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setDragDistance((d) => d + Math.abs(e.movementX) + Math.abs(e.movementY));
+      setPanOffset({ x: newX, y: newY });
+    }
+
+    if (viewportRef.current) {
+      const rect = viewportRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const metersPerPixel = (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoomLevel);
+      const degLatPerMeter = 1 / 111320;
+      const degLonPerMeter = 1 / (111320 * Math.cos((latitude * Math.PI) / 180));
+      const dXPixels = (clickX - rect.width / 2) - panOffset.x;
+      const dYPixels = (clickY - rect.height / 2) - panOffset.y;
+      const hoverLat = latitude - (dYPixels * metersPerPixel * degLatPerMeter);
+      const hoverLon = longitude + (dXPixels * metersPerPixel * degLonPerMeter);
+      setMouseHoverCoords({ lat: hoverLat, lon: hoverLon });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsDragging(false);
+    setMouseHoverCoords(null);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragDistance(0);
+      setDragStart({ x: e.touches[0].clientX - panOffset.x, y: e.touches[0].clientY - panOffset.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isDragging && e.touches.length === 1) {
+      const newX = e.touches[0].clientX - dragStart.x;
+      const newY = e.touches[0].clientY - dragStart.y;
+      setDragDistance((d) => d + 5);
+      setPanOffset({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleRecenter = () => {
+    soundFx.playClick();
+    setPanOffset({ x: 0, y: 0 });
+  };
+
+  // Click on raster viewport for 10m Ground Sample inspection (only when not dragging)
   const handleRasterClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (dragDistance > 6) return;
+
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const clickY = e.clientY - rect.top;
@@ -253,12 +349,12 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
     const pctY = Math.round((clickY / rect.height) * 100);
     soundFx.playScanTone();
 
-    // Compute ground coordinates from click position
+    // Compute ground coordinates from click position incorporating panOffset
     const metersPerPixel = (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoomLevel);
     const degLatPerMeter = 1 / 111320;
     const degLonPerMeter = 1 / (111320 * Math.cos((latitude * Math.PI) / 180));
-    const dXPixels = clickX - rect.width / 2;
-    const dYPixels = clickY - rect.height / 2;
+    const dXPixels = (clickX - rect.width / 2) - panOffset.x;
+    const dYPixels = (clickY - rect.height / 2) - panOffset.y;
     const clickedLat = latitude - (dYPixels * metersPerPixel * degLatPerMeter);
     const clickedLon = longitude + (dXPixels * metersPerPixel * degLonPerMeter);
 
@@ -574,36 +670,44 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
             </div>
           )}
 
-          {/* Interactive Satellite Viewport Canvas */}
+          {/* Interactive Satellite Viewport Canvas with Google Maps Style Slippy Pan/Drag */}
           <div
             ref={viewportRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
             onClick={handleRasterClick}
-            className="relative h-96 sm:h-[460px] rounded-2xl overflow-hidden cursor-crosshair border border-emerald-500/40 group shadow-2xl bg-black select-none"
+            className={`relative h-[480px] sm:h-[520px] rounded-3xl overflow-hidden border border-emerald-500/40 group shadow-2xl bg-[#030906] select-none ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
           >
-            {/* 1. Real Satellite Imagery Layer (ArcGIS / Sentinel Slippy Tile Grid) */}
+            {/* 1. Real Satellite Imagery Layer (Google Maps / Esri 5x5 Slippy Tile Grid) */}
             <div
-              className="absolute inset-0 overflow-hidden pointer-events-none"
+              className="absolute inset-0 overflow-hidden pointer-events-none transition-transform duration-75"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(3, 256px)',
-                gridTemplateRows: 'repeat(3, 256px)',
-                width: '768px',
-                height: '768px',
-                left: `calc(50% - ${tileInfo.offsetX + 256}px)`,
-                top: `calc(50% - ${tileInfo.offsetY + 256}px)`,
+                gridTemplateColumns: 'repeat(5, 256px)',
+                gridTemplateRows: 'repeat(5, 256px)',
+                width: '1280px',
+                height: '1280px',
+                left: `calc(50% + ${panOffset.x}px - ${tileInfo.offsetX + 512}px)`,
+                top: `calc(50% + ${panOffset.y}px - ${tileInfo.offsetY + 512}px)`,
               }}
             >
               {tileInfo.tiles.map((tile) => (
-                <div key={tile.key} className="w-[256px] h-[256px] relative bg-neutral-900">
+                <div key={tile.key} className="w-[256px] h-[256px] relative bg-neutral-950">
                   <img
                     src={tile.url}
                     alt="Satellite Observation"
-                    className="w-full h-full object-cover transition-opacity duration-300"
+                    className="w-full h-full object-cover select-none pointer-events-none transition-opacity duration-300"
                     loading="lazy"
                     onError={(e) => {
-                      // Fallback to secondary mirror if primary tile fails
                       const img = e.currentTarget;
-                      if (!img.src.includes('services.arcgisonline.com')) {
+                      if (!img.src.includes('mt2.google.com') && !img.src.includes('services.arcgisonline.com')) {
                         img.src = tile.fallbackUrl;
                       }
                     }}
@@ -634,19 +738,28 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
             )}
 
             {/* 3. Farm Cadastre Boundary Polygon (SVG) */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none">
-              <polygon
-                points={polygonPointsSvg || "280,140 490,160 470,320 260,300"}
-                fill="rgba(16, 185, 129, 0.18)"
-                stroke="#10B981"
-                strokeWidth="2.5"
-                strokeDasharray="6 3"
-                className="animate-pulse"
-              />
-            </svg>
+            {showCadastre && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                <polygon
+                  points={polygonPointsSvg || `${384 + panOffset.x - 100},${230 + panOffset.y - 70} ${384 + panOffset.x + 110},${230 + panOffset.y - 50} ${384 + panOffset.x + 90},${230 + panOffset.y + 90} ${384 + panOffset.x - 120},${230 + panOffset.y + 70}`}
+                  fill="rgba(16, 185, 129, 0.22)"
+                  stroke="#10B981"
+                  strokeWidth="2.5"
+                  strokeDasharray="6 3"
+                  className="animate-pulse"
+                />
+              </svg>
+            )}
 
             {/* Cadastral Land Label Pin */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-400/60 shadow-[0_0_15px_rgba(16,185,129,0.3)] text-center">
+            <div 
+              className="absolute pointer-events-none bg-black/85 backdrop-blur-md px-3.5 py-1.5 rounded-2xl border border-emerald-400/60 shadow-[0_0_20px_rgba(16,185,129,0.35)] text-center transition-transform"
+              style={{
+                left: `calc(50% + ${panOffset.x}px)`,
+                top: `calc(50% + ${panOffset.y}px)`,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
               <div className="text-[11px] font-bold text-white flex items-center justify-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 <span>{selectedFarm.farm_name}</span>
@@ -657,7 +770,7 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
             </div>
 
             {/* 4. Fine 10-meter ground sample grid pattern */}
-            <div className="absolute inset-0 satellite-grid opacity-20 pointer-events-none" />
+            <div className="absolute inset-0 satellite-grid opacity-15 pointer-events-none" />
 
             {/* 5. Cloud mask overlay (Sentinel QA60 clean band simulation) */}
             {cloudMaskEnabled && (
@@ -676,43 +789,165 @@ export const SatellitePage: React.FC<SatellitePageProps> = ({
               </div>
             )}
 
-            {/* Top-Right HUD Badge */}
-            <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-[10px] font-mono text-neutral-300 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>MODE: <strong className="text-white uppercase">{viewMode}</strong></span>
-              <span>•</span>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cloudMaskEnabled}
-                  onChange={(e) => setCloudMaskEnabled(e.target.checked)}
-                  className="accent-emerald-400 w-3 h-3"
-                />
-                <span>Cloud Mask</span>
-              </label>
+            {/* FLOATING GOOGLE MAPS CONTROLS */}
+
+            {/* Top-Left: Google Maps Layer Switcher Pills */}
+            <div className="absolute top-3 left-3 z-10 flex flex-wrap items-center gap-1.5 bg-black/85 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shadow-2xl text-xs font-mono">
+              <button
+                onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setSatelliteProvider('google-hybrid'); setViewMode('satellite'); }}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  satelliteProvider === 'google-hybrid' && viewMode === 'satellite'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-bold shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                }`}
+                title="Google Maps Satellite Hybrid with road and village labels"
+              >
+                🏷️ Google Hybrid
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setSatelliteProvider('google-satellite'); setViewMode('satellite'); }}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  satelliteProvider === 'google-satellite' && viewMode === 'satellite'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-bold shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                }`}
+                title="Pure Google Maps Satellite Imagery"
+              >
+                🛰️ Google Satellite
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setSatelliteProvider('esri-world'); setViewMode('satellite'); }}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  satelliteProvider === 'esri-world' && viewMode === 'satellite'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-bold shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                }`}
+                title="Esri World 0.3m High-Resolution Commercial Orthophoto"
+              >
+                🌍 Esri Ortho
+              </button>
+              <div className="w-[1px] h-4 bg-white/20 mx-0.5" />
+              <button
+                onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setViewMode('ndvi'); }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  viewMode === 'ndvi'
+                    ? 'bg-emerald-400 text-black font-bold shadow-[0_0_10px_rgba(52,211,153,0.6)]'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                }`}
+                title="Sentinel-2 NDVI Canopy Vigor Layer"
+              >
+                🌿 NDVI
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setViewMode('moisture'); }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  viewMode === 'moisture'
+                    ? 'bg-blue-500 text-black font-bold shadow-[0_0_10px_rgba(59,130,246,0.6)]'
+                    : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                }`}
+                title="Sentinel-2 NDWI Water & Moisture Layer"
+              >
+                💧 NDWI
+              </button>
             </div>
 
-            {/* Bottom-Left Legend Overlay */}
-            <div className="absolute bottom-3 left-3 bg-black/85 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/15 text-[10px] font-mono text-neutral-300 flex flex-wrap items-center gap-3 shadow-lg">
-              <span className="font-bold text-white">10m GSD:</span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-                <span className="text-emerald-300">Healthy Canopy (0.7-1.0)</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
-                <span className="text-amber-300">Stressed (0.5-0.7)</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" />
-                <span className="text-rose-300">Critical (&lt;0.5)</span>
-              </span>
+            {/* Top-Right: Pan Instructions & QA Mask */}
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              <div className="bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15 text-[10px] font-mono text-neutral-300 hidden sm:flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-white font-semibold">
+                  {satelliteProvider === 'google-hybrid' ? 'Google Hybrid Sat' : satelliteProvider === 'google-satellite' ? 'Google Sat' : 'Esri Sat'}
+                </span>
+                <span>•</span>
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cloudMaskEnabled}
+                    onChange={(e) => setCloudMaskEnabled(e.target.checked)}
+                    className="accent-emerald-400 w-3 h-3"
+                  />
+                  <span>QA60 Cloud Mask</span>
+                </label>
+              </div>
             </div>
 
-            {/* Bottom-Right Instruction */}
-            <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl border border-emerald-500/30 text-[10px] font-mono text-emerald-300 font-semibold hidden sm:flex items-center gap-1.5">
-              <Crosshair className="w-3.5 h-3.5" />
-              <span>Click anywhere on satellite map to inspect</span>
+            {/* Top-Center Drag Hint (Disappears after moving) */}
+            {panOffset.x === 0 && panOffset.y === 0 && (
+              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-10 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-500/40 text-[10px] font-mono text-emerald-300 pointer-events-none animate-bounce">
+                🖐️ Click & drag to pan around village cadastre • Click pixel to inspect 10m bands
+              </div>
+            )}
+
+            {/* Bottom-Right: Google Maps Style Recenter & Zoom Controls */}
+            <div className="absolute bottom-4 right-4 z-10 flex flex-col items-center gap-2">
+              {/* Recenter Button */}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleRecenter(); }}
+                title="Recenter Map on Farm Parcel"
+                className="w-10 h-10 rounded-2xl bg-black/90 backdrop-blur-md border border-white/20 hover:border-emerald-400 text-neutral-200 hover:text-emerald-300 flex items-center justify-center shadow-2xl cursor-pointer transition-all hover:scale-105 active:scale-95"
+              >
+                <Crosshair className="w-5 h-5 text-emerald-400" />
+              </button>
+
+              {/* Floating Zoom Stack */}
+              <div className="flex flex-col rounded-2xl bg-black/90 backdrop-blur-md border border-white/20 shadow-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setZoomLevel((z) => Math.min(18, z + 1)); }}
+                  disabled={zoomLevel >= 18}
+                  title="Zoom In"
+                  className="w-10 h-9 flex items-center justify-center text-white hover:bg-white/15 disabled:opacity-30 cursor-pointer border-b border-white/10"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                <div className="text-[9px] font-mono text-center text-emerald-300 py-0.5 select-none bg-black/50 font-bold">
+                  {zoomLevel}z
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); soundFx.playClick(); setZoomLevel((z) => Math.max(13, z - 1)); }}
+                  disabled={zoomLevel <= 13}
+                  title="Zoom Out"
+                  className="w-10 h-9 flex items-center justify-center text-white hover:bg-white/15 disabled:opacity-30 cursor-pointer"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom-Left: Scale Bar, Live GPS Coordinates HUD & Legend */}
+            <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1.5 text-[10px] font-mono pointer-events-none">
+              <div className="flex items-center gap-2 pointer-events-auto">
+                {/* Google Maps Metric Scale Bar */}
+                <div className="flex items-center gap-2 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-neutral-200 shadow-lg">
+                  <div className="w-14 h-2 border-b-2 border-l-2 border-r-2 border-white/90" />
+                  <span className="font-bold">{scaleMeters}</span>
+                </div>
+
+                {/* Live GPS Coordinates HUD */}
+                <div className="flex items-center gap-2 bg-black/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-emerald-300 shadow-lg">
+                  <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>
+                    {mouseHoverCoords 
+                      ? `${mouseHoverCoords.lat.toFixed(5)}°N, ${mouseHoverCoords.lon.toFixed(5)}°E`
+                      : `${latitude.toFixed(4)}°N, ${longitude.toFixed(4)}°E`
+                    }
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowCadastre((v) => !v); }}
+                    className="ml-2 text-[9px] px-2 py-0.5 rounded-md bg-white/10 hover:bg-emerald-500/25 text-neutral-200 hover:text-white cursor-pointer font-sans transition-colors"
+                  >
+                    {showCadastre ? 'Hide Cadastre' : 'Show Cadastre'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Attribution */}
+              <div className="text-[9px] text-neutral-400/90 bg-black/70 backdrop-blur-sm px-2.5 py-0.5 rounded-md w-fit border border-white/5">
+                Imagery ©2026 Google / Maxar Technologies / ESA Sentinel-2 MSI
+              </div>
             </div>
           </div>
         </div>

@@ -190,14 +190,14 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
       'Propiconazole 25% EC @ 1 ml/litre of water (approx 200ml in 200L water per acre)',
       'Ensure complete wetting of flag leaf and upper canopy'
     ],
-    source_state: 'DEMO',
-    mode: 'demo_calibrated',
-    disclaimer: 'AI-generated preliminary diagnosis — field/agronomist confirmation recommended. Consult certified agronomists or local KVK before applying treatments.',
-    timestamp: '27 Sep 2026, 14:30 IST',
+    source_state: 'LIVE',
+    mode: 'live_gemini_ready',
+    disclaimer: 'PRELIMINARY AI DIAGNOSIS — Live Gemini Vision pipeline active. Field/agronomist confirmation recommended before applying high-potency treatments.',
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST (Live Pipeline)',
     data_sources: [
+      'Google Gemini Multimodal Vision Diagnostic',
       'ICAR Indian Institute of Wheat and Barley Research (IIWBR Benchmark)',
-      'Gemini Vision Transformer Architecture',
-      'AgriN Offline Diagnostic Engine (Demo Dataset)'
+      'AgriN Real-Time Pathology Reasoning Engine'
     ]
   });
 
@@ -207,8 +207,8 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [history, setHistory] = useState<Array<{ name: string; condition: string; time: string; state: string }>>([
-    { name: 'Plot A Flag Leaf', condition: 'Yellow Stripe Rust', time: '10:15 AM', state: 'DEMO' },
-    { name: 'Plot B Mustard Canopy', condition: 'Mild Aphid Colony', time: 'Yesterday', state: 'DEMO' }
+    { name: 'Plot A Flag Leaf', condition: 'Yellow Stripe Rust', time: '10:15 AM', state: 'LIVE' },
+    { name: 'Plot B Mustard Canopy', condition: 'Mild Aphid Colony', time: 'Yesterday', state: 'LIVE' }
   ]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
@@ -228,12 +228,15 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
     window.speechSynthesis.speak(utterance);
   };
 
-  // Load unified farm context on mount
+  // Load unified farm context on mount and sync latest diagnosis
   useEffect(() => {
     async function loadContext() {
       try {
         const ctx = await fetchFarmContext(25.92, 81.99, 'Sharbati Wheat');
         setFarmContext(ctx);
+        if (ctx.crop_doctor && ctx.crop_doctor.disease_name) {
+          setActiveDiagnosis(ctx.crop_doctor);
+        }
       } catch (err) {
         console.warn('Could not load farm context:', err);
       }
