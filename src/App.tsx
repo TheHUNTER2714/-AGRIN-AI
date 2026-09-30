@@ -22,12 +22,16 @@ import { FarmerConsentCenterModal } from './components/FarmerConsentCenterModal'
 import { ImpactDashboardModal } from './components/ImpactDashboardModal';
 import { ExplainableWhyModal, type ExplainableWhyData } from './components/ExplainableWhyModal';
 import { NewLandRegistrationModal } from './components/NewLandRegistrationModal';
+import { SystemStatusModal } from './components/SystemStatusModal';
+import { DataProvenanceModal } from './components/DataProvenanceModal';
+import { JudgeModeModal } from './components/JudgeModeModal';
 import { 
   type RegisteredFarm, 
   fetchRegisteredFarms, 
   saveFarmToLocal, 
   getFarmsFromLocal, 
-  getDefaultFarms 
+  getDefaultFarms,
+  resetDemoFarm 
 } from './services/api';
 import { soundFx } from './utils/audio';
 import { 
@@ -84,6 +88,40 @@ export const App: React.FC = () => {
 
   // Feature 12: National Impact Dashboard
   const [impactModalOpen, setImpactModalOpen] = useState(false);
+
+  // AgriN System Status Live Inspector
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+
+  // AgriN Data Provenance & Sensor Attribution Modal
+  const [provenanceModalOpen, setProvenanceModalOpen] = useState(false);
+  const [provenanceCategory, setProvenanceCategory] = useState<string | undefined>(undefined);
+
+  // AgriN Guided Judge Mode & 14-Point Readiness Modal
+  const [judgeModalOpen, setJudgeModalOpen] = useState(false);
+
+  const handleEnterDemoFarm = async () => {
+    soundFx.playChime(640, 0.3);
+    try {
+      await resetDemoFarm();
+      const defaults = getDefaultFarms();
+      const demoFarm: RegisteredFarm = defaults[0];
+      saveFarmToLocal(demoFarm);
+      setActiveFarm(demoFarm);
+      setActiveTab('overview');
+    } catch {
+      const defaults = getDefaultFarms();
+      if (defaults[0]) {
+        setActiveFarm(defaults[0]);
+      }
+      setActiveTab('overview');
+    }
+  };
+
+  const handleOpenProvenance = (category?: string) => {
+    setProvenanceCategory(category);
+    soundFx.playClick();
+    setProvenanceModalOpen(true);
+  };
 
   // Feature 17: Living UI Atmospheric Mode ('auto' | 'rain' | 'heat' | 'flora' | 'satellite')
   const [livingUiOverride, setLivingUiOverride] = useState<'auto' | 'rain' | 'heat' | 'flora' | 'satellite'>('auto');
@@ -370,6 +408,10 @@ export const App: React.FC = () => {
           soundFx.playClick();
           setIsLandModalOpen(true);
         }}
+        onEnterDemoFarm={handleEnterDemoFarm}
+        onOpenSystemStatus={() => setStatusModalOpen(true)}
+        onOpenJudgeMode={() => setJudgeModalOpen(true)}
+        onOpenProvenance={() => handleOpenProvenance()}
         alertCount={alerts.filter((a) => a.severity === 'high' || a.severity === 'medium').length}
       />
 
@@ -395,18 +437,43 @@ export const App: React.FC = () => {
         isOpen={whyModalOpen}
         onClose={() => setWhyModalOpen(false)}
         data={customWhyData}
+        onOpenProvenance={() => handleOpenProvenance('satellite')}
       />
 
-      {/* Feature 15: Farmer Data Consent Center Modal */}
+      {/* Feature 15: Farmer Data Consent Center Modal (AgriN Trust Center) */}
       <FarmerConsentCenterModal
         isOpen={consentModalOpen}
         onClose={() => setConsentModalOpen(false)}
+        onOpenProvenance={() => handleOpenProvenance()}
       />
 
       {/* Feature 12: National Impact Dashboard Modal */}
       <ImpactDashboardModal
         isOpen={impactModalOpen}
         onClose={() => setImpactModalOpen(false)}
+      />
+
+      {/* AgriN Subsystem Live Status Inspector Modal */}
+      <SystemStatusModal
+        isOpen={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+      />
+
+      {/* AgriN Data Provenance & Sensor Attribution Modal */}
+      <DataProvenanceModal
+        isOpen={provenanceModalOpen}
+        onClose={() => setProvenanceModalOpen(false)}
+        defaultCategory={provenanceCategory}
+      />
+
+      {/* AgriN Guided Evaluation & Judge Mode Modal */}
+      <JudgeModeModal
+        isOpen={judgeModalOpen}
+        onClose={() => setJudgeModalOpen(false)}
+        onNavigateToTab={(tab) => setActiveTab(tab)}
+        onOpenWhyModal={() => openWhyModalWithData()}
+        onOpenProvenance={() => handleOpenProvenance()}
+        onEnterDemoFarm={handleEnterDemoFarm}
       />
 
       {/* New Land Registration Modal (4-step real-data parcel intake) */}

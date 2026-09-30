@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 import { CropGrowthJourney } from './CropGrowthJourney';
+import { FarmChangeDetectionCard } from './FarmChangeDetectionCard';
 import type { NavTab } from './NavBar';
 import { calculateCropRisk, fetchDemoFarm, type RiskEngineResult } from '../services/api';
 
@@ -240,7 +241,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               Crop Health & Composite Risk Engine
             </h2>
             <p className="text-xs text-neutral-300 mt-0.5">
-              Fuses Satellite NDVI, Open-Meteo Doppler precipitation, and ICAR soil tension into a single calibrated risk score.
+              Fuses Sentinel-2 NDVI, Open-Meteo weather intelligence, and ICAR soil tension into a single calibrated risk score.
             </p>
           </div>
 
@@ -364,6 +365,12 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
+      {/* Feature: What Changed Since Last Check? Farm Change Detection */}
+      <FarmChangeDetectionCard 
+        farmId={currentFarm.name} 
+        onOpenWhyModal={onOpenWhyModal} 
+      />
+
       {/* Feature 5: Crop Growth Journey */}
       <CropGrowthJourney />
 
@@ -384,7 +391,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               Water-Stress Hotspot Detected Across 4 Villages (340 Farmers)
             </h3>
             <p className="text-xs text-neutral-300 font-light">
-              AgriN aggregated multi-plot soil moisture and radar predictions across Pratapgarh Block B. State Agriculture Department advisory dispatched.
+              AgriN aggregated multi-plot soil moisture and Open-Meteo weather intelligence across Pratapgarh Block B. State Agriculture Department advisory dispatched.
             </p>
           </div>
           <button
@@ -446,8 +453,8 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           className="p-4 rounded-2xl glass-panel-subtle hover:border-emerald-400 text-left transition-all cursor-pointer"
         >
           <CloudRain className="w-5 h-5 text-blue-400 mb-1.5" />
-          <div className="font-bold text-xs text-white">Weather Radar</div>
-          <div className="text-[10px] text-neutral-400">35mm Expected</div>
+          <div className="font-bold text-xs text-white">Weather Intel</div>
+          <div className="text-[10px] text-neutral-400">Open-Meteo 35mm</div>
         </button>
 
         <button
@@ -456,7 +463,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         >
           <AlertTriangle className="w-5 h-5 text-amber-400 mb-1.5" />
           <div className="font-bold text-xs text-white">Crop Doctor</div>
-          <div className="text-[10px] text-neutral-400">Gemini ViT Scan</div>
+          <div className="text-[10px] text-neutral-400">Gemini Vision Scan</div>
         </button>
 
         <button

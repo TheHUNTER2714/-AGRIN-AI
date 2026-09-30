@@ -351,7 +351,7 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
       sources: [
         `Sentinel-2 MSI Level-2A (${satState})`,
         `Crop Doctor Multimodal Gemini Vision (${activeDiagnosis.source_state || 'DEMO'})`,
-        'Open-Meteo Doppler Surface Weather Assimilation',
+        'Open-Meteo Weather Intelligence',
         'In-situ Soil Sensor Capacitance Telemetry'
       ]
     };
@@ -581,6 +581,16 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
               </span>
             </div>
 
+            {/* Mandated Safety Badges */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold font-mono">
+                ⚠️ PRELIMINARY AI DIAGNOSIS
+              </span>
+              <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] font-bold font-mono">
+                VERIFY HIGH-RISK TREATMENT WITH LOCAL AGRONOMIST / KVK
+              </span>
+            </div>
+
             {/* Identified Plant Species Banner */}
             <div className="mt-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-950/80 via-[#0b3320] to-black/70 border-2 border-emerald-500/40 shadow-lg">
               <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest flex items-center gap-1.5 font-bold">
@@ -658,6 +668,18 @@ export const CropDoctorPage: React.FC<CropDoctorPageProps> = ({ onOpenWhyModal }
                 <span>{isPlayingAudio ? 'Stop Audio' : 'Listen Solution'}</span>
               </button>
             </div>
+
+            {/* Medical / Agronomic Safety Notice */}
+            <div className="p-2.5 rounded-xl bg-black/40 border border-amber-500/30 text-[11px] text-amber-200/90 font-mono">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-bold text-amber-300">SAFETY PROTOCOL:</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-bold">
+                  EXPERT VERIFICATION REQUIRED
+                </span>
+              </div>
+              Possible intervention identified. Verify approved product, crop stage, local label instructions and agronomist/KVK guidance before application.
+            </div>
+
             <ul className="text-xs text-neutral-200/90 space-y-2">
               {activeDiagnosis.recommended_actions.map((remedy, i) => (
                 <li key={i} className="flex items-start gap-2 p-2 rounded-lg bg-black/30 border border-white/5">

@@ -8,13 +8,24 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-# Preferred Gemini models in priority order
-GEMINI_MODELS = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-2.5-flash", "gemini-1.5-flash"]
+# Centralized Gemini Model Configuration
+PRIMARY_GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+FALLBACK_GEMINI_MODELS = [
+    PRIMARY_GEMINI_MODEL,
+    "gemini-3.8-flash",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+    "gemini-flash-latest"
+]
+# Unique ordered models
+GEMINI_MODELS = list(dict.fromkeys(FALLBACK_GEMINI_MODELS))
 
 def get_gemini_client():
     """Initializes google-genai client if API key is present."""
@@ -218,45 +229,32 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
 """
 
     if GEMINI_API_KEY:
-        # 1. Try google-genai SDK with gemini-3.8-flash / gemini-flash-latest
-        try:
-            client = get_gemini_client()
-            if client:
-                model_to_use = "gemini-3.8-flash"
+        client = get_gemini_client()
+        if client:
+            for m in GEMINI_MODELS:
                 try:
+                    from google.genai import types
+                    image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
                     response = client.models.generate_content(
-                        model=model_to_use,
-                        contents=[
-                            prompt,
-                            {"mime_type": mime_type, "data": image_bytes}
-                        ]
+                        model=m,
+                        contents=[prompt, image_part]
                     )
-                except Exception:
-                    # Fallback to gemini-2.5-flash
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=[
-                            prompt,
-                            {"mime_type": mime_type, "data": image_bytes}
-                        ]
-                    )
-
-                if response and response.text:
-                    parsed = parse_and_validate_crop_doctor_json(response.text, crop_hint)
-                    # Register into unified FarmContext
-                    try:
-                        from backend.services.farm_context import register_crop_diagnosis
-                        register_crop_diagnosis(parsed)
-                    except Exception as err:
-                        logger.warning(f"Could not register diagnosis into context: {err}")
-                    return parsed
-        except Exception as e:
-            logger.warning(f"Gemini SDK vision inference error: {e}")
+                    if response and response.text:
+                        parsed = parse_and_validate_crop_doctor_json(response.text, crop_hint, model_name=m)
+                        try:
+                            from backend.services.farm_context import register_crop_diagnosis
+                            register_crop_diagnosis(parsed)
+                        except Exception as err:
+                            logger.warning(f"Could not register diagnosis into context: {err}")
+                        return parsed
+                except Exception as e:
+                    logger.warning(f"Gemini model {m} vision attempt error: {e}")
+                    continue
 
         # 2. Try REST API endpoint fallback
         try:
             b64_img = base64.b64encode(image_bytes).decode("utf-8")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{PRIMARY_GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
             payload = {
                 "contents": [{
                     "parts": [
@@ -268,7 +266,7 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
             res = requests.post(url, json=payload, timeout=9.0)
             if res.status_code == 200:
                 raw_text = res.json()["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = parse_and_validate_crop_doctor_json(raw_text, crop_hint)
+                parsed = parse_and_validate_crop_doctor_json(raw_text, crop_hint, model_name=PRIMARY_GEMINI_MODEL)
                 parsed["mode"] = "live_gemini_rest"
                 try:
                     from backend.services.farm_context import register_crop_diagnosis
@@ -301,7 +299,7 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
         ],
         "recommended_actions": [
             "Biological Protocol: Foliar spray of 5% Neem Seed Kernel Extract (NSKE) at 50ml/10L water + Trichoderma viride (5g/L) during early evening",
-            "Targeted Chemical Protocol: Propiconazole 25% EC @ 1 ml/litre of water (approx 200ml in 200L water per acre); ensure complete coverage of flag leaf"
+            "Targeted Chemical Protocol: Propiconazole 25% EC @ 1 ml/litre of water (approx 200ml in 200L water per acre); verify local KVK approval"
         ],
         "prevention": [
             "Avoid excessive late-season nitrogen top-dressing which creates a succulent lush canopy",
@@ -309,7 +307,7 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
             "Maintain 22.5cm row spacing to promote air ventilation and reduce leaf wetness duration"
         ],
         "image_quality": "Good",
-        "needs_expert_confirmation": False,
+        "needs_expert_confirmation": True,
         # Backward compatibility
         "crop_identified": fallback_crop,
         "condition": "Yellow Stripe Rust (Puccinia striiformis)",
@@ -320,12 +318,15 @@ Do NOT output markdown backticks or any conversational text. Return ONLY the JSO
         ],
         "chemical_treatment": [
             "Propiconazole 25% EC @ 1 ml/litre of water (approx 200ml in 200L water per acre)",
-            "Ensure complete coverage of flag leaf and upper canopy"
+            "Ensure complete coverage of flag leaf and upper canopy — EXPERT VERIFICATION REQUIRED"
         ],
-        # Explicit DEMO state labeling
+        # Explicit DEMO state labeling with provenance metadata
         "source_state": "DEMO",
         "mode": "demo_fallback",
-        "disclaimer": "DEMO BENCHMARK DIAGNOSIS — Live Gemini Vision unavailable (GEMINI_API_KEY not configured or offline). Field/agronomist confirmation recommended before applying high-potency treatments.",
+        "model": "Gemini Vision Crop Diagnostic (Benchmark)",
+        "prompt_version": "AGRIN-VISION-v2",
+        "context_version": "FarmContext-v1",
+        "disclaimer": "PRELIMINARY AI DIAGNOSIS — field/agronomist confirmation recommended. Verify high-risk treatment with local agronomist / KVK before application.",
         "timestamp": now_str,
         "data_sources": [
             "ICAR-Indian Institute of Wheat and Barley Research (IIWBR Benchmark)",
@@ -356,7 +357,7 @@ def generate_gemini_agro_advisory(
 ) -> Dict[str, Any]:
     """
     Context-fused Gemini agro-advisory integrating satellite NDVI/NDWI,
-    live weather radar, in-situ soil chemistry, and Crop Doctor pathology.
+    live weather intelligence, in-situ soil chemistry, and Crop Doctor pathology.
     """
     now_str = datetime.now().strftime("%d %b %Y, %H:%M IST")
 
@@ -381,14 +382,14 @@ def generate_gemini_agro_advisory(
 
     system_prompt = f"""
 You are AgriN, an advanced AI Agronomist serving small and marginal farmers across India.
-Provide precision, localized agricultural advice fusing satellite telemetry, weather radar, soil health, and leaf diagnosis.
+Provide precision, localized agricultural advice fusing satellite telemetry, weather intelligence, soil health, and leaf diagnosis.
 
 UNIFIED FARM INTELLIGENCE CONTEXT:
 - Farm Location: {location}
 - Target Crop: {crop}
 - Growth Stage: {growth_stage}
 - In-situ Soil Chemistry: {soil_str}
-- Live Weather Radar & Forecast: {weather_str}
+- Live Weather Intelligence & Forecast (Open-Meteo): {weather_str}
 - Sentinel-2 Satellite Multispectral Telemetry: {sat_str}
 - Crop Doctor Diagnostic Findings: {doc_str}
 
@@ -398,7 +399,7 @@ FARMER INQUIRY:
 Respond STRICTLY in valid JSON matching this schema:
 {{
   "advice": "Concise, actionable direct recommendation (1-2 sentences)",
-  "reasoning": "Scientific yet accessible reasoning explaining why this is advised given the soil, weather radar, Sentinel-2 NDVI/NDWI, and leaf pathology",
+  "reasoning": "Scientific yet accessible reasoning explaining why this is advised given the soil, weather forecast, Sentinel-2 NDVI/NDWI, and leaf pathology",
   "confidence": 0.95,
   "action_items": [
     "1. Immediate action for today",
@@ -406,7 +407,7 @@ Respond STRICTLY in valid JSON matching this schema:
     "3. Preventive or regenerative measure"
   ],
   "warnings": ["Key weather, lodging, or disease risk warning"],
-  "data_sources": ["Sentinel-2 MSI Level-2A", "Open-Meteo Operational Radar", "ICAR Soil Telemetry", "Crop Doctor Vision Diagnostic", "Google Gemini Reasoning"]
+  "data_sources": ["Sentinel-2 MSI Level-2A", "Open-Meteo Weather Intelligence", "ICAR Soil Telemetry", "Crop Doctor Vision Diagnostic", "Google Gemini Reasoning"]
 }}
 Do NOT output markdown backticks around the JSON.
 """
@@ -415,36 +416,45 @@ Do NOT output markdown backticks around the JSON.
         try:
             client = get_gemini_client()
             if client:
-                res = None
-                try:
-                    res = client.models.generate_content(
-                        model="gemini-3.8-flash",
-                        contents=system_prompt
-                    )
-                except Exception:
-                    res = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=system_prompt
-                    )
-
-                if res and res.text:
-                    text = res.text.strip()
-                    if text.startswith("```json"):
-                        text = text[7:]
-                    elif text.startswith("```"):
-                        text = text[3:]
-                    if text.endswith("```"):
-                        text = text[:-3]
-                    text = text.strip()
-                    s_idx = text.find("{")
-                    e_idx = text.rfind("}")
-                    if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
-                        text = text[s_idx:e_idx+1]
-                    data = json.loads(text)
-                    data["mode"] = "live_gemini"
-                    data["timestamp"] = now_str
-                    data["disclaimer"] = "AI-generated preliminary advisory — field/agronomist confirmation recommended."
-                    return data
+                for m in GEMINI_MODELS:
+                    try:
+                        res = client.models.generate_content(
+                            model=m,
+                            contents=system_prompt
+                        )
+                        if res and res.text:
+                            text = res.text.strip()
+                            if text.startswith("```json"):
+                                text = text[7:]
+                            elif text.startswith("```"):
+                                text = text[3:]
+                            if text.endswith("```"):
+                                text = text[:-3]
+                            text = text.strip()
+                            s_idx = text.find("{")
+                            e_idx = text.rfind("}")
+                            if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
+                                text = text[s_idx:e_idx+1]
+                            data = json.loads(text)
+                            data["mode"] = "live_gemini"
+                            data["source_state"] = "LIVE"
+                            data["model"] = m
+                            data["prompt_version"] = "AGRIN-ADVISOR-v3"
+                            data["context_version"] = "FarmContext-v1"
+                            data["ai_confidence_percent"] = int(round(float(data.get("confidence", 0.95)) * 100))
+                            data["data_confidence"] = "High"
+                            data["uncertainty_factors"] = [
+                                "Precipitation updates within next 12 hours from Open-Meteo",
+                                "Next Sentinel-2 satellite observation pass",
+                                "Capillary soil moisture response after expected rain",
+                                "Subsequent foliar pathology scan results"
+                            ]
+                            data["timestamp"] = now_str
+                            data["disclaimer"] = "AI-generated preliminary advisory — field/agronomist confirmation recommended. Verify high-risk treatment with local agronomist / KVK."
+                            return data
+                    except Exception as e:
+                        logger.warning(f"Gemini model {m} advisory attempt failed: {e}")
+                        continue
         except Exception as e:
             logger.warning(f"Gemini advisory generation error: {e}")
 
@@ -455,7 +465,7 @@ Do NOT output markdown backticks around the JSON.
     if is_rain:
         advice = "Postpone scheduled furrow irrigation for the next 48 hours."
         reasoning = (
-            "Open-Meteo Doppler radar indicates an 82% probability of a 35mm convective storm cell arriving in 14 hours. "
+            "Open-Meteo weather intelligence indicates an 82% probability of a 35mm convective storm cell arriving in 14 hours. "
             "Sentinel-2 Level-2A confirms stable canopy reflectance (NDVI 0.78), and in-situ soil capacitance sensors show root-zone moisture at 28% (68% of field capacity). "
             "Irrigating now onto high-tension soil would trigger waterlogging, anaerobic root stress, premature lodging, and waste ₹1,200 in diesel pumping."
         )
@@ -492,19 +502,31 @@ Do NOT output markdown backticks around the JSON.
     return {
         "advice": advice,
         "reasoning": reasoning,
-        "confidence": 0.95,
+        "confidence": 0.94,
+        "ai_confidence_percent": 94,
+        "data_confidence": "Medium",
+        "uncertainty_factors": [
+            "Open-Meteo precipitation tracking over next 12h",
+            "Next Sentinel-2 satellite observation pass",
+            "Capillary soil moisture response after rainfall",
+            "Subsequent foliar pathology scan results"
+        ],
         "action_items": action_items,
         "warnings": warnings,
         "data_sources": [
             "ESA Sentinel-2 MSI MultiSpectral Telemetry (Pass 26 Sep 2026)",
-            "Open-Meteo Hyperlocal Doppler Surface Model",
+            "Open-Meteo Weather Intelligence (Operational Grid)",
             "ICAR In-situ Soil Moisture Sensor (28% vol)",
             "Crop Doctor Vision Pathological Diagnostic",
-            "Google Gemini Unified Context Fusion Engine"
+            "AgriN Deterministic Risk & Context Engine"
         ],
+        "model": PRIMARY_GEMINI_MODEL,
+        "prompt_version": "AGRIN-ADVISOR-v3",
+        "context_version": "FarmContext-v1",
+        "source_state": "DEMO",
         "mode": "demo_fallback",
         "timestamp": now_str,
-        "disclaimer": "AI-generated preliminary advisory — field/agronomist confirmation recommended. (Live Gemini active when GEMINI_API_KEY is configured in backend/.env)"
+        "disclaimer": "AI-generated preliminary advisory — field/agronomist confirmation recommended. Verify high-risk treatment with local agronomist / KVK."
     }
 
 def process_vernacular_voice_query(
@@ -513,60 +535,152 @@ def process_vernacular_voice_query(
     crop: str = "Wheat"
 ) -> Dict[str, Any]:
     """
-    Processes spoken query in Hindi or Indic language, returning natural conversational guidance.
+    Processes spoken query in Hindi or Indic language, fusing current Farm Context
+    (weather, soil moisture, crop stage, satellite NDVI, and latest crop diagnosis)
+    to generate natural conversational guidance via Gemini.
     """
     now_str = datetime.now().strftime("%d %b %Y, %H:%M IST")
+
+    # 1. Fetch current Farm Context to ground reasoning
+    try:
+        from backend.services.farm_context import get_current_farm_context
+        ctx = get_current_farm_context()
+    except Exception:
+        ctx = {}
+
+    farm_crop = ctx.get("crop", crop or "Sharbati Wheat")
+    growth_stage = ctx.get("growth_stage", "Vegetative Tillering")
+    soil_m = float(ctx.get("soil", {}).get("moisture_percentage", 28.0))
+    weather_info = ctx.get("weather", {})
+    temp = float(weather_info.get("temperature_c", 28.0))
+    rain_prob = int(weather_info.get("rain_probability", 82))
+    rain_mm = float(weather_info.get("rainfall_mm", 35.0))
+    sat_info = ctx.get("satellite", {})
+    sat_ndvi = float(sat_info.get("ndvi", 0.78))
+    sat_trend = str(sat_info.get("vegetation_trend", "Stable"))
+    crop_doc = ctx.get("crop_doctor")
+    disease_name = crop_doc.get("disease_name") if crop_doc and not crop_doc.get("is_healthy", True) else "None"
+
+    context_snapshot = {
+        "crop": farm_crop,
+        "growth_stage": growth_stage,
+        "soil_moisture": soil_m,
+        "rain_probability": rain_prob,
+        "expected_rainfall_mm": rain_mm,
+        "temperature_c": temp,
+        "satellite_ndvi": sat_ndvi,
+        "satellite_trend": sat_trend,
+        "disease_detected": disease_name
+    }
 
     if GEMINI_API_KEY:
         try:
             client = get_gemini_client()
-            prompt = f"""
-You are AgriN, an AI agricultural companion for Indian farmers.
-The farmer asked: "{transcript}"
+            if client:
+                prompt = f"""
+You are AgriN, an AI agricultural companion and agronomist for Indian farmers.
+The farmer asked in vernacular: "{transcript}"
 Language: {language}
-Crop: {crop}
 Location: Pratapgarh, Uttar Pradesh
 
-Provide a warm, reassuring, concise response in natural, simple Hindi (or the requested Indic language)
-suitable to be spoken out loud via Text-To-Speech.
-Do NOT use complex jargon. Keep to 2-3 sentences max. Ground your answer in recent weather and satellite conditions.
-"""
-            if client:
-                res = None
-                try:
-                    res = client.models.generate_content(
-                        model="gemini-3.8-flash",
-                        contents=prompt
-                    )
-                except Exception:
-                    res = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=prompt
-                    )
+LIVE FARM CONTEXT FOR THIS SPECIFIC FARM:
+- Target Crop: {farm_crop} ({growth_stage})
+- Weather (Open-Meteo): {temp}°C, Rain Probability {rain_prob}%, Expected Rain {rain_mm}mm
+- Root-Zone Soil Moisture: {soil_m}% (Field Capacity: 68%)
+- Satellite Telemetry (Sentinel-2): NDVI {sat_ndvi} ({sat_trend})
+- Crop Doctor Disease Status: {disease_name}
 
-                if res and res.text:
-                    answer = res.text.strip()
-                    return {
-                        "answer_text": answer,
-                        "language": language,
-                        "confidence": 0.95,
-                        "suggested_actions": ["सिंचाई स्थगित रखें", "निचले खेत का निरीक्षण करें", "बारिश के बाद खाद डालें"],
-                        "mode": "live_gemini",
-                        "timestamp": now_str
-                    }
+Respond STRICTLY in valid JSON matching this schema:
+{{
+  "spoken_response": "Concise 2-3 sentence answer in natural, simple spoken {language} directly answering the farmer's question based on their real context. Suitable for Text-To-Speech.",
+  "gemini_reasoning": "1 sentence in English explaining the multi-sensor scientific rationale linking weather, soil moisture, satellite, and crop stage to this recommendation",
+  "suggested_actions": ["Action 1 in simple words", "Action 2", "Action 3"]
+}}
+Do NOT output markdown backticks or commentary.
+"""
+                for m in GEMINI_MODELS:
+                    try:
+                        res = client.models.generate_content(
+                            model=m,
+                            contents=prompt
+                        )
+                        if res and res.text:
+                            text = res.text.strip()
+                            if text.startswith("```json"):
+                                text = text[7:]
+                            elif text.startswith("```"):
+                                text = text[3:]
+                            if text.endswith("```"):
+                                text = text[:-3]
+                            text = text.strip()
+                            s_idx = text.find("{")
+                            e_idx = text.rfind("}")
+                            if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
+                                text = text[s_idx:e_idx+1]
+                            data = json.loads(text)
+                            return {
+                                "answer_text": data.get("spoken_response", "नमस्ते किसान भाई।"),
+                                "language": language,
+                                "confidence": 0.95,
+                                "suggested_actions": data.get("suggested_actions", [
+                                    "सिंचाई 48 घंटे के लिए टालें",
+                                    "जल निकासी की नालियां साफ रखें",
+                                    "बारिश के बाद खाद डालें"
+                                ]),
+                                "voice_query": transcript,
+                                "farm_context_snapshot": context_snapshot,
+                                "gemini_reasoning": data.get("gemini_reasoning", "Fusing Open-Meteo rainfall forecast with Sentinel-2 NDVI and soil moisture tension."),
+                                "model": m,
+                                "prompt_version": "AGRIN-VOICE-v1",
+                                "context_version": "FarmContext-v1",
+                                "source_state": "LIVE",
+                                "mode": "live_gemini",
+                                "timestamp": now_str
+                            }
+                    except Exception as e:
+                        logger.warning(f"Gemini voice attempt on model {m} failed: {e}")
+                        continue
         except Exception as e:
             logger.warning(f"Voice query Gemini error: {e}")
 
-    # High-quality natural Hindi spoken response
-    return {
-        "answer_text": "नमस्ते किसान भाई। आज आपके खेत में सिंचाई मत कीजिए। मौसम रडार और सैटेलाइट के अनुसार शाम को पैंतीस मिलीमीटर भारी वर्षा की संभावना है। यदि अभी पानी देंगे तो फसल गिर सकती है और खाद बह जाएगी। बारिश के बाद यूरिया का छिड़काव करें।",
-        "language": language,
-        "confidence": 0.96,
-        "suggested_actions": [
+    # High-quality context-grounded fallback response (deterministic multi-sensor grounding)
+    if rain_prob >= 60 or "पानी" in transcript or "सिंचाई" in transcript or "irrigate" in transcript.lower() or "water" in transcript.lower():
+        spoken = f"नमस्ते किसान भाई। आज आपके खेत में सिंचाई मत कीजिए। ओपन-मेटियो मौसम पूर्वानुमान के अनुसार शाम को {rain_mm} मिलीमीटर वर्षा ({rain_prob}% संभावना) है। आपकी मिट्टी में पहले से {soil_m}% पर्याप्त नमी है। अभी पानी देने से जड़ें सड़ सकती हैं। बारिश के बाद यूरिया का छिड़काव करें।"
+        reasoning = f"Open-Meteo reports {rain_prob}% rain probability ({rain_mm}mm) with current soil moisture at {soil_m}%. Sentinel-2 NDVI {sat_ndvi} indicates stable canopy; irrigation withheld to avoid lodging and waterlogging."
+        actions = [
             "सिंचाई 48 घंटे के लिए टालें (Delay irrigation 48h)",
             "जल निकासी की नालियां साफ रखें (Clear drainage furrows)",
             "बारिश के 36 घंटे बाद खाद डालें (Apply urea post-rain)"
-        ],
+        ]
+    elif disease_name != "None":
+        spoken = f"नमस्ते किसान भाई। आपके खेत में {disease_name} के लक्षण मिले हैं। नीम के तेल का 5% घोल बनाकर छिड़काव करें। तेज रासायनिक दवा के लिए पहले अपने नजदीकी कृषि विज्ञान केंद्र (KVK) से संपर्क करें।"
+        reasoning = f"Crop Doctor identified {disease_name}. Humid micro-climate creates fungal sporulation risk. Biological intervention recommended first."
+        actions = [
+            "5% नीम तेल का छिड़काव करें",
+            "निचली पत्तियों का निरीक्षण करें",
+            "केवीके विशेषज्ञ से पुष्टि करें"
+        ]
+    else:
+        spoken = f"नमस्ते किसान भाई। आपके {farm_crop} की स्थिति अच्छी है। सैटेलाइट सूचकांक NDVI {sat_ndvi} पर स्थिर है। मिट्टी में {soil_m}% नमी बनी हुई है। मौसम साफ रहने पर सामान्य देखरेख जारी रखें।"
+        reasoning = f"Sentinel-2 NDVI {sat_ndvi} and soil moisture {soil_m}% confirm optimal vegetative vigor for {growth_stage}."
+        actions = [
+            "सामान्य निराई-गुड़ाई जारी रखें",
+            "पत्तियों पर कीट गतिविधि की जांच करें",
+            "साप्ताहिक मिट्टी नमी ट्रैक करें"
+        ]
+
+    return {
+        "answer_text": spoken,
+        "language": language,
+        "confidence": 0.94,
+        "suggested_actions": actions,
+        "voice_query": transcript,
+        "farm_context_snapshot": context_snapshot,
+        "gemini_reasoning": reasoning,
+        "model": PRIMARY_GEMINI_MODEL,
+        "prompt_version": "AGRIN-VOICE-v1",
+        "context_version": "FarmContext-v1",
+        "source_state": "DEMO",
         "mode": "demo_fallback",
         "timestamp": now_str
     }

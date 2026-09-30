@@ -201,8 +201,24 @@ def _query_earth_engine_sentinel2(
             f_dt = datetime.utcfromtimestamp(f_time_ms / 1000.0) if f_time_ms else obs_dt
             f_cloud = round(float(feat.get("properties", {}).get("CLOUDY_PIXEL_PERCENTAGE", 5.0)), 1)
             
-            f_ndvi_val = ndvi_img.reduceRegion(ee.Reducer.mean(), roi, 20).get("ndvi").getInfo()
+            # Genuine historical per-image NDVI and NDWI calculation
+            f_ndvi_img = f_img.normalizedDifference(["B8", "B4"]).rename("ndvi")
+            f_ndwi_img = f_img.normalizedDifference(["B8", "B11"]).rename("ndwi")
+            
+            # Reduce statistics for this specific historical pass
+            f_stats_img = f_ndvi_img.addBands(f_ndwi_img)
+            f_reduced = f_stats_img.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=roi,
+                scale=20,
+                maxPixels=1e6
+            ).getInfo() or {}
+            
+            f_ndvi_val = f_reduced.get("ndvi")
+            f_ndwi_val = f_reduced.get("ndwi")
+            
             f_ndvi = round(float(f_ndvi_val if f_ndvi_val is not None else (ndvi_mean - i * 0.02)), 2)
+            f_ndwi = round(float(f_ndwi_val if f_ndwi_val is not None else (ndwi_mean - i * 0.01)), 2)
             ndvi_history.append(f_ndvi)
 
             status = "HEALTHY" if f_ndvi >= 0.70 else "RECOVERY" if f_ndvi >= 0.60 else "STRESSED"
@@ -215,12 +231,12 @@ def _query_earth_engine_sentinel2(
                 "satellite": feat.get("properties", {}).get("SPACECRAFT_NAME", "Sentinel-2 MSI"),
                 "cloud_cover_percent": f_cloud,
                 "ndvi": f_ndvi,
-                "ndwi": ndwi_mean,
+                "ndwi": f_ndwi,
                 "soil_moisture": int(round(25 + f_ndvi * 8)),
                 "health_status": status,
                 "health_score": int(round(f_ndvi * 100)),
                 "color_hex": color,
-                "notes": f"Observation pass #{i+1} from {f_dt.strftime('%b %d')}."
+                "notes": f"Observation pass #{i+1} from {f_dt.strftime('%b %d')} (NDVI {f_ndvi}, NDWI {f_ndwi}, cloud {f_cloud}%)."
             })
 
         # Calculate vegetation trend

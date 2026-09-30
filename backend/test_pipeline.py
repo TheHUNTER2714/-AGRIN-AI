@@ -1,5 +1,9 @@
 import sys
 import io
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 from PIL import Image
 from fastapi.testclient import TestClient
 from backend.main import app
@@ -148,7 +152,66 @@ def run_tests():
     print(f"  [OK] Advisor response: {adv['advice']}")
     print(f"  [OK] Advisor reasoning: {adv['reasoning']}")
 
+    print("\n=== 12. Testing Farm Change Detection (/api/context/change) ===")
+    r_chg = client.get("/api/context/change")
+    assert r_chg.status_code == 200, f"Change detection failed: {r_chg.text}"
+    chg = r_chg.json()
+    print(f"  [OK] Change detection: NDVI delta={chg['ndvi_delta']}, Disease signal={chg['disease_signal']}, State={chg['source_state']}")
+    assert "ndvi_delta" in chg
+    assert "source_state" in chg
+    assert "detected_summary" in chg
+
+    print("\n=== 13. Testing Data Provenance Registry (/api/context/provenance) ===")
+    r_prov = client.get("/api/context/provenance")
+    assert r_prov.status_code == 200
+    prov = r_prov.json()
+    print(f"  [OK] Provenance keys verified: {list(prov.keys())}")
+    assert "satellite" in prov
+    assert "weather" in prov
+    assert "crop_doctor" in prov
+    assert "risk_engine" in prov
+    assert "soil" in prov
+
+    print("\n=== 14. Testing Intervention Simulator (/api/context/interventions) ===")
+    r_int = client.get("/api/context/interventions")
+    assert r_int.status_code == 200
+    interv = r_int.json()
+    print(f"  [OK] Interventions loaded: {len(interv['options'])} options compared")
+    assert len(interv["options"]) >= 3
+    for opt in interv["options"]:
+        print(f"    - {opt['title']}: Risk {opt['risk_score']} | Water: {opt['estimated_water_use']}")
+
+    print("\n=== 15. Testing System Status Registry (/api/context/status) ===")
+    r_stat = client.get("/api/context/status")
+    assert r_stat.status_code == 200
+    stat = r_stat.json()
+    print(f"  [OK] System status: Overall={stat['overall']}, Subsystems={list(stat['subsystems'].keys())}")
+    assert "gemini_ai" in stat["subsystems"]
+    assert "weather" in stat["subsystems"]
+    assert "earth_engine" in stat["subsystems"]
+    assert "risk_engine" in stat["subsystems"]
+
+    print("\n=== 16. Testing Vernacular Voice Query with Context Reasoning ===")
+    r_voice = client.post(
+        "/api/voice/query",
+        json={"transcript": "क्या आज मेरे खेत में पानी देना चाहिए?", "language": "hi", "crop": "Wheat"}
+    )
+    assert r_voice.status_code == 200
+    voice = r_voice.json()
+    print(f"  [OK] Spoken answer: {voice['answer_text'][:60]}...")
+    print(f"  [OK] Voice query reasoning: {voice.get('gemini_reasoning')}")
+    print(f"  [OK] Farm snapshot: {voice.get('farm_context_snapshot')}")
+    assert "answer_text" in voice
+
+    print("\n=== 17. Testing Canonical Demo Farm Reset (/api/farms/demo/reset) ===")
+    r_reset = client.post("/api/farms/demo/reset")
+    assert r_reset.status_code == 200
+    res_data = r_reset.json()
+    print(f"  [OK] Demo reset: {res_data['farm']['farm_name']} at {res_data['farm']['district']}, {res_data['farm']['state']}")
+    assert res_data["farm"]["area_ha"] == 14.2
+
     print("\n ALL BACKEND PIPELINE TESTS PASSED SUCCESSFULLY!")
 
 if __name__ == "__main__":
     run_tests()
+

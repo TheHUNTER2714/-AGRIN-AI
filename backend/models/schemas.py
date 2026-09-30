@@ -91,7 +91,10 @@ class CropDoctorResponse(BaseModel):
     # Trust and audit provenance
     source_state: str = "DEMO" # 'LIVE' | 'DEMO'
     mode: str = "demo_fallback" # 'live_gemini' | 'demo_fallback'
-    disclaimer: str = "AI-generated preliminary diagnosis — field/agronomist confirmation recommended. Consult certified agronomists or local KVK before applying treatments."
+    model: Optional[str] = "Gemini Vision Diagnostic"
+    prompt_version: Optional[str] = "AGRIN-VISION-v2"
+    context_version: Optional[str] = "FarmContext-v1"
+    disclaimer: str = "PRELIMINARY AI DIAGNOSIS — field/agronomist confirmation recommended. Verify high-risk treatment with local agronomist / KVK before application."
     timestamp: str
     data_sources: List[str]
 
@@ -134,12 +137,24 @@ class AdvisorResponse(BaseModel):
     advice: str
     reasoning: str
     confidence: float
+    ai_confidence_percent: Optional[int] = 95
+    data_confidence: Optional[str] = "High"
+    uncertainty_factors: Optional[List[str]] = Field(default_factory=lambda: [
+        "Precipitation radar updates within next 12 hours",
+        "Next Sentinel-2 satellite observation pass",
+        "Soil moisture probe re-calibration after rain",
+        "Subsequent foliar pathology scan results"
+    ])
     action_items: List[str]
     warnings: List[str]
     data_sources: List[str]
+    model: Optional[str] = "Gemini Flash"
+    prompt_version: Optional[str] = "AGRIN-ADVISOR-v3"
+    context_version: Optional[str] = "FarmContext-v1"
+    source_state: Optional[str] = "DEMO"
     timestamp: str
     mode: str # 'live_gemini' or 'demo_fallback'
-    disclaimer: str = "AI-generated preliminary advisory — field/agronomist confirmation recommended."
+    disclaimer: str = "AI-generated preliminary advisory — field/agronomist confirmation recommended. Verify high-risk treatment with local agronomist / KVK."
 
 class RiskEngineResponse(BaseModel):
     composite_risk_score: int # 0 - 100
@@ -184,5 +199,67 @@ class VoiceQueryResponse(BaseModel):
     language: str
     confidence: float
     suggested_actions: List[str]
+    voice_query: Optional[str] = None
+    farm_context_snapshot: Optional[Dict[str, Any]] = None
+    gemini_reasoning: Optional[str] = None
+    model: Optional[str] = "Gemini Flash"
+    prompt_version: Optional[str] = "AGRIN-VOICE-v1"
+    context_version: Optional[str] = "FarmContext-v1"
+    source_state: Optional[str] = "LIVE"
     mode: str
+    timestamp: str
+
+class FarmChangeDetectionResponse(BaseModel):
+    previous_observation_date: str
+    current_observation_date: str
+    ndvi_delta: float
+    ndwi_delta: float
+    soil_moisture_delta_percent: float
+    rainfall_forecast_delta_mm: float
+    disease_signal: str
+    detected_summary: str
+    recommended_action: str
+    source_state: str = "DEMO CHANGE ANALYSIS"
+    timestamp: str
+
+class InterventionOption(BaseModel):
+    id: str
+    title: str
+    action_type: str
+    description: str
+    estimated_water_use: str
+    risk_score: int
+    resource_requirement: str
+    relative_cost: str
+    environmental_effect: str
+    tradeoff_notes: str
+
+class InterventionComparisonResponse(BaseModel):
+    current_farm_state: Dict[str, Any]
+    options: List[InterventionOption]
+    disclaimer: str = "Scenario estimate — not measured field outcome. Tradeoffs presented transparently without declaring an automatic best choice."
+    timestamp: str
+
+class DataProvenanceItem(BaseModel):
+    key: str
+    title: str
+    source: str
+    provider: str
+    processing: str
+    collection: Optional[str] = None
+    resolution: Optional[str] = None
+    formula: Optional[str] = None
+    observation_time: str
+    roi_boundary: Optional[str] = None
+    state: str
+
+class SubsystemStatus(BaseModel):
+    name: str
+    status: str
+    is_live: bool
+    detail: str
+
+class SystemStatusResponse(BaseModel):
+    overall: str
+    subsystems: Dict[str, SubsystemStatus]
     timestamp: str

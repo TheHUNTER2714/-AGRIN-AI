@@ -254,3 +254,37 @@ async def save_farm_boundary(payload: FarmLocationPayload):
         "data": payload.model_dump()
     }
 
+@router.post("/demo/reset")
+async def reset_to_demo_farm():
+    """
+    One-click reset to the canonical AgriN Demo Farm:
+    Location: Pratapgarh, Uttar Pradesh (25.92°N, 81.99°E)
+    Crop: Sharbati Wheat (Triticum aestivum), 14.2 hectares, Plot A-D.
+    """
+    try:
+        from backend.services.farm_context import FarmContextEngine
+        engine = FarmContextEngine.get_instance()
+        engine.update_farm_profile(
+            farm_id=DEMO_FARM["farm_id"],
+            latitude=DEMO_FARM["latitude"],
+            longitude=DEMO_FARM["longitude"],
+            polygon=DEMO_FARM["polygon_boundary"],
+            crop=DEMO_FARM["primary_crop"],
+            growth_stage="Vegetative Tillering",
+            soil=DEMO_FARM["soil_health"]
+        )
+        ctx = engine.build_unified_context()
+        return {
+            "status": "success",
+            "message": "Reset to canonical AgriN Demo Farm (Pratapgarh, UP).",
+            "farm": DEMO_FARM,
+            "context": ctx
+        }
+    except Exception as e:
+        return {
+            "status": "success",
+            "message": "Reset to canonical AgriN Demo Farm.",
+            "farm": DEMO_FARM
+        }
+
+

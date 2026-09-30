@@ -42,3 +42,38 @@ async def sync_farm_context(
         soil=soil_dict
     )
     return FarmContext(**context)
+
+@router.get("/change", response_model=Dict[str, Any])
+async def get_farm_change_detection():
+    """
+    Computes delta telemetry comparing current farm observations against
+    the previous observation cycle (NDVI, NDWI, soil moisture, rain delta, disease signal).
+    """
+    from backend.services.farm_context import compute_farm_change_detection
+    return compute_farm_change_detection()
+
+@router.get("/provenance", response_model=Dict[str, Any])
+async def get_data_provenance():
+    """
+    Returns auditable data provenance and methodology for all core telemetry.
+    """
+    from backend.services.farm_context import get_data_provenance_registry
+    return get_data_provenance_registry()
+
+@router.get("/interventions", response_model=Dict[str, Any])
+async def get_intervention_options():
+    """
+    Compares 3 distinct management interventions using deterministic risk calculations
+    and transparent trade-offs.
+    """
+    from backend.services.farm_context import get_intervention_comparison
+    return get_intervention_comparison()
+
+@router.get("/status", response_model=Dict[str, Any])
+async def get_system_status():
+    """
+    Returns real-time status of all backend subsystems (Gemini, Weather, Earth Engine, Risk, Voice, BRICS).
+    """
+    from backend.services.farm_context import get_system_subsystems_status
+    return get_system_subsystems_status()
+

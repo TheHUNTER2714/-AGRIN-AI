@@ -101,7 +101,9 @@ def fetch_live_weather(latitude: float = 25.92, longitude: float = 81.99, locati
                     "longitude": longitude
                 },
                 "timestamp": now_str,
-                "source": "Open-Meteo Operational Surface Observation & IMD Grid Model",
+                "source": "Open-Meteo Weather Intelligence (Live Operational Model)",
+                "source_state": "LIVE",
+                "state": "LIVE",
                 "mode": "live_api"
             }
     except Exception as e:
@@ -133,6 +135,8 @@ def fetch_live_weather(latitude: float = 25.92, longitude: float = 81.99, locati
             "longitude": longitude
         },
         "timestamp": now_str,
-        "source": "Open-Meteo Operational / IMD (Local Seeded Fallback)",
+        "source": "Open-Meteo Weather Intelligence (Calibrated Demo Fallback)",
+        "source_state": "DEMO",
+        "state": "DEMO",
         "mode": "fallback_demo"
     }

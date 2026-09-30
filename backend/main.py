@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from backend.routes.advisor import router as advisor_router
 from backend.routes.crop_doctor import router as crop_doctor_router

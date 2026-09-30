@@ -22,7 +22,11 @@ import {
   BarChart3,
   Wifi,
   WifiOff,
-  PlusCircle
+  PlusCircle,
+  Activity,
+  Gavel,
+  FileSearch,
+  Zap
 } from 'lucide-react';
 import { soundFx } from '../utils/audio';
 
@@ -53,6 +57,10 @@ interface NavBarProps {
   onOpenConsent: () => void;
   onOpenImpact: () => void;
   onOpenRegisterLand?: () => void;
+  onEnterDemoFarm?: () => void;
+  onOpenSystemStatus?: () => void;
+  onOpenJudgeMode?: () => void;
+  onOpenProvenance?: () => void;
   alertCount: number;
 }
 
@@ -69,6 +77,10 @@ export const NavBar: React.FC<NavBarProps> = ({
   onOpenConsent,
   onOpenImpact,
   onOpenRegisterLand,
+  onEnterDemoFarm,
+  onOpenSystemStatus,
+  onOpenJudgeMode,
+  onOpenProvenance,
   alertCount,
 }) => {
   const [scrolled, setScrolled] = useState(false);
@@ -181,6 +193,66 @@ export const NavBar: React.FC<NavBarProps> = ({
               <PlusCircle className="w-3.5 h-3.5 text-emerald-200" />
               <span className="hidden sm:inline">+ Register Land</span>
               <span className="sm:hidden">+ Land</span>
+            </button>
+          )}
+
+          {/* Enter One-Click Hackathon Demo Farm */}
+          {onEnterDemoFarm && (
+            <button
+              onClick={() => {
+                soundFx.playChime(640, 0.25);
+                onEnterDemoFarm();
+              }}
+              title="One-Click Hackathon Demo Farm (Pratapgarh, UP • 14.2 ha)"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/90 to-yellow-600/90 hover:from-amber-400 hover:to-yellow-500 text-black font-mono text-[11px] font-extrabold shadow-[0_0_15px_rgba(245,158,11,0.4)] border border-amber-300 cursor-pointer transition-all hover:scale-105"
+            >
+              <Zap className="w-3.5 h-3.5 text-black fill-black" />
+              <span>DEMO FARM</span>
+            </button>
+          )}
+
+          {/* Guided Judge Mode & 14-Point Readiness Checklist */}
+          {onOpenJudgeMode && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onOpenJudgeMode();
+              }}
+              title="Open Guided Judge Mode & 14-Point Readiness Checklist"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[11px] font-mono font-bold transition-all cursor-pointer shadow-[0_0_12px_rgba(245,158,11,0.25)] hover:scale-105"
+            >
+              <Gavel className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden md:inline">Judge Mode</span>
+            </button>
+          )}
+
+          {/* System Status Inspector */}
+          {onOpenSystemStatus && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onOpenSystemStatus();
+              }}
+              title="AgriN AI Subsystem Live Status & Telemetry"
+              className="p-1.5 sm:px-2 sm:py-1 rounded-full glass-panel-subtle hover:border-emerald-500/40 text-neutral-300 hover:text-emerald-300 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Activity className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden lg:inline">Status</span>
+            </button>
+          )}
+
+          {/* Data Provenance Inspector */}
+          {onOpenProvenance && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                onOpenProvenance();
+              }}
+              title="Data Provenance & Sensor Attribution Inspector"
+              className="p-1.5 sm:px-2 sm:py-1 rounded-full glass-panel-subtle hover:border-emerald-500/40 text-neutral-300 hover:text-emerald-300 text-[11px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <FileSearch className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden lg:inline">Provenance</span>
             </button>
           )}
 
@@ -307,6 +379,34 @@ export const NavBar: React.FC<NavBarProps> = ({
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="xl:hidden fixed top-16 left-4 right-4 bg-[#05130D]/95 backdrop-blur-2xl border border-emerald-500/30 rounded-2xl p-4 shadow-2xl flex flex-col gap-1 pointer-events-auto max-h-[75vh] overflow-y-auto">
+          {onEnterDemoFarm && (
+            <button
+              onClick={() => {
+                soundFx.playChime(640, 0.25);
+                setMobileMenuOpen(false);
+                onEnterDemoFarm();
+              }}
+              className="flex items-center gap-3 px-4 py-3 mb-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 text-black font-mono text-xs font-extrabold border border-amber-300 shadow-lg cursor-pointer"
+            >
+              <Zap className="w-4 h-4 text-black fill-black" />
+              <span>⚡ Enter Hackathon Demo Farm</span>
+            </button>
+          )}
+
+          {onOpenJudgeMode && (
+            <button
+              onClick={() => {
+                soundFx.playClick();
+                setMobileMenuOpen(false);
+                onOpenJudgeMode();
+              }}
+              className="flex items-center gap-3 px-4 py-2.5 mb-1.5 rounded-xl bg-amber-500/20 text-amber-300 font-mono text-xs font-bold border border-amber-500/40 cursor-pointer"
+            >
+              <Gavel className="w-4 h-4 text-amber-300" />
+              <span>Judge Mode & 14-Point Checklist</span>
+            </button>
+          )}
+
           {onOpenRegisterLand && (
             <button
               onClick={() => {

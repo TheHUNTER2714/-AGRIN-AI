@@ -23,10 +23,13 @@ interface LevelMetrics {
   label: string;
   fullName: string;
   scopeTag: string;
+  crop: string;
   cropRisk: number;
   riskStatus: 'Critical' | 'Moderate' | 'Safe' | 'Guarded';
   waterStress: string;
   diseaseHotspots: number;
+  soil: string;
+  regenerativePractices: string;
   weatherSummary: string;
   monitoredFarms: string;
   monitoredArea: string;
@@ -39,14 +42,17 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
     level: 'national',
     label: 'India (National)',
     fullName: 'Republic of India — National Agro-Climatic Grid',
-    scopeTag: 'MACRO NATIONAL SENTINEL (28 STATES)',
+    scopeTag: 'MACRO NATIONAL SENTINEL (PROTOTYPE REGIONAL DATASET)',
+    crop: 'Wheat, Rice, Pulses, Mustard Composite',
     cropRisk: 42,
     riskStatus: 'Moderate',
     waterStress: '-11% below decadal water baseline',
     diseaseHotspots: 142,
+    soil: 'Alluvial (North), Black Cotton (Central), Red Laterite (South)',
+    regenerativePractices: 'Direct Seeding (DSR), Happy Seeder Stubble Mulching, Pulse Rotation',
     weatherSummary: 'Southwest monsoon withdrawing; localized rain in Gangetic belt',
-    monitoredFarms: '2,480,000 Smallholders',
-    monitoredArea: '40.0M Hectares',
+    monitoredFarms: 'Prototype Regional Dataset (Pratapgarh Hub Extrapolation)',
+    monitoredArea: '40.0M Ha Target Topology',
     activeNDVI: '0.64 (National Mean)',
     directive: 'Issue national advisories for wheat rabi sowing preparation and paddy straw stubble burning mitigation.',
   },
@@ -55,12 +61,15 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
     label: 'Uttar Pradesh',
     fullName: 'Uttar Pradesh — Central Gangetic Agro-Climatic Zone',
     scopeTag: 'STATE JURISDICTION (75 DISTRICTS)',
+    crop: 'Sharbati Wheat, Sugarcane, Mustard, Arhar',
     cropRisk: 54,
     riskStatus: 'Moderate',
     waterStress: '-8% below decadal average',
     diseaseHotspots: 38,
+    soil: 'Deep Alluvial Silt Loam (pH 7.2 - 7.6)',
+    regenerativePractices: 'Zero-till wheat seeding, Trichoderma soil application, Biochar infusion',
     weatherSummary: 'Rain showers forecasted in Eastern Awadh basin (27°C, 82% humidity)',
-    monitoredFarms: '640,000 Farms',
+    monitoredFarms: '640,000 Farms in Provincial Cadastre',
     monitoredArea: '14.8M Hectares',
     activeNDVI: '0.71 (Statewide)',
     directive: 'Canal release scheduled for Southern Awadh canal network; alert issued for root rot in low-lying fields.',
@@ -70,12 +79,15 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
     label: 'Pratapgarh',
     fullName: 'Pratapgarh District — Awadh Plain, UP',
     scopeTag: 'DISTRICT COLLECTORATE (17 BLOCKS)',
+    crop: 'Wheat (PBW-343, HD-2967), Pusa Mustard',
     cropRisk: 67,
     riskStatus: 'Critical',
     waterStress: '+18% short-term water logging risk',
     diseaseHotspots: 14,
-    weatherSummary: 'High rain probability 84%, 12.4mm precipitation expected in 24h',
-    monitoredFarms: '48,200 Farms',
+    soil: 'Alluvial Sandy Loam with Clay Sub-stratum (pH 7.4)',
+    regenerativePractices: 'Alternate Wetting & Drying, Happy Seeder Stubble Mulch',
+    weatherSummary: 'High rain probability 84%, 35mm precipitation expected in 14-24h',
+    monitoredFarms: '48,200 Registered Holdings',
     monitoredArea: '371,000 Hectares',
     activeNDVI: '0.78 (Sentinel-2 L2A)',
     directive: 'Delay nitrogen urea top-dressing and chemical sprays until surface drainage clears within 48h.',
@@ -85,12 +97,15 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
     label: 'Sadar Block',
     fullName: 'Sadar Tehsil / Block — Pratapgarh',
     scopeTag: 'TEHSIL BLOCK LEVEL (112 GRAM PANCHAYATS)',
+    crop: 'Sharbati Wheat (Tillering Stage)',
     cropRisk: 62,
     riskStatus: 'Moderate',
     waterStress: 'Surface saturation 72% of field capacity',
     diseaseHotspots: 6,
-    weatherSummary: 'Scattered thunderstorms; wind speeds 18 km/h',
-    monitoredFarms: '8,400 Farms',
+    soil: 'Fine Silt Loam (SOC 0.58%)',
+    regenerativePractices: 'Laser land levelling, community drainage furrows',
+    weatherSummary: 'Scattered thunderstorms; wind gusts 22 km/h',
+    monitoredFarms: '8,400 Block Farmers',
     monitoredArea: '42,000 Hectares',
     activeNDVI: '0.76 (Sentinel-2)',
     directive: 'FPO aggregation active: coordinate laser land levelling and drainage furrow clearing.',
@@ -100,11 +115,14 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
     label: 'Pure Gosai Village',
     fullName: 'Pure Gosai Gram Panchayat Cluster (4 Hamlets)',
     scopeTag: 'VILLAGE PANCHAYAT LEVEL (340 HOUSEHOLDS)',
+    crop: 'Wheat (PBW-343 / Sharbati)',
     cropRisk: 67,
     riskStatus: 'Critical',
     waterStress: 'Heavy rain forecasted — delay tube-well irrigation',
     diseaseHotspots: 2,
-    weatherSummary: 'Cloudy, 27.7°C, Rain expected 16:30 IST',
+    soil: 'Alluvial Loam with In-situ Moisture 28%',
+    regenerativePractices: 'AgriCycle Stubble Collection, 100% Zero-Burn Verified',
+    weatherSummary: 'Cloudy, 27.7°C, Rain expected in 14h',
     monitoredFarms: '340 Registered Farmers',
     monitoredArea: '1,280 Hectares',
     activeNDVI: '0.78 (Sentinel-2 MSI)',
@@ -113,17 +131,20 @@ const HIERARCHY_DATA: Record<GeoLevel, LevelMetrics> = {
   farm: {
     level: 'farm',
     label: 'Ayush Farm (Demo)',
-    fullName: 'Ayush Farm — Plot 14-B (Wheat / PBW-550)',
-    scopeTag: 'INDIVIDUAL FARM PARCEL (14.2 HA)',
+    fullName: 'Ayush Demo Farm — Plot A-D (14.2 ha)',
+    scopeTag: 'INDIVIDUAL PARCEL GROUND-TRUTH (PLOT A-D)',
+    crop: 'Sharbati Wheat (Triticum aestivum L.)',
     cropRisk: 67,
     riskStatus: 'Critical',
-    waterStress: 'Root-zone moisture 28% (Water stress weight: 28%)',
+    waterStress: 'Root-zone moisture 28% (Field capacity 68%)',
     diseaseHotspots: 1,
-    weatherSummary: '27.7°C • 84% Rain Probability • Wind 12 km/h',
-    monitoredFarms: 'Ayush Farm (Plot 14-B)',
+    soil: 'Alluvial Silt Loam (pH 7.4, N 185, P 24.5, K 340, SOC 0.58%)',
+    regenerativePractices: 'Zero-till sowing, Happy Seeder mulch, Biochar trial',
+    weatherSummary: '28.4°C • 82% Rain Probability (35mm in 14h)',
+    monitoredFarms: 'Ayush Farm (Plot A)',
     monitoredArea: '14.2 Hectares',
-    activeNDVI: '0.78 (Sentinel-2 Band 8/Band 4)',
-    directive: 'Do NOT irrigate today. Yellow Rust early foliar symptoms detected on 12% of sample foliage. Apply Propiconazole after rain.',
+    activeNDVI: '0.78 (Sentinel-2 MSI Level-2A)',
+    directive: 'Do NOT irrigate today. Yellow Rust early foliar symptoms detected. Apply bio-fungicide post-rainfall.',
   },
 };
 
@@ -257,20 +278,30 @@ export const IndiaCommandCenter: React.FC = () => {
 
       {/* Dynamic Jurisdiction Banner showing live state of active level */}
       <div className="p-5 rounded-2xl bg-black/60 border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block">
-            CURRENT TELEMETRY SCOPE: {currentLevelData.scopeTag}
-          </span>
-          <div className="text-xl font-display font-bold text-white mt-0.5">
+        <div className="space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-bold">
+              SCOPE: {currentLevelData.scopeTag}
+            </span>
+            <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-neutral-300 border border-zinc-700">
+              PROTOTYPE REGIONAL DATASET
+            </span>
+          </div>
+          <div className="text-xl font-display font-bold text-white">
             {currentLevelData.fullName}
           </div>
-          <p className="text-xs text-neutral-300 mt-1">
+          <p className="text-xs text-neutral-300 font-light max-w-2xl">
             {currentLevelData.directive}
           </p>
+          <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] font-mono text-neutral-400">
+            <div><span className="text-emerald-400 font-bold">Dominant Crop:</span> <span className="text-white">{currentLevelData.crop}</span></div>
+            <div><span className="text-teal-400 font-bold">Soil Profile:</span> <span className="text-white">{currentLevelData.soil}</span></div>
+            <div><span className="text-cyan-400 font-bold">Regenerative Practice:</span> <span className="text-white">{currentLevelData.regenerativePractices}</span></div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0 font-mono text-xs">
-          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-center min-w-[110px]">
+        <div className="flex items-center gap-3 shrink-0 font-mono text-xs">
+          <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/20 text-center min-w-[100px]">
             <span className="text-[10px] text-neutral-400 block">CROP RISK</span>
             <span className={`text-lg font-bold ${
               currentLevelData.cropRisk > 60 ? 'text-red-400' : 'text-emerald-300'
@@ -278,83 +309,103 @@ export const IndiaCommandCenter: React.FC = () => {
               {currentLevelData.cropRisk} / 100
             </span>
           </div>
-          <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/20 text-center min-w-[110px]">
+          <div className="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/20 text-center min-w-[100px]">
             <span className="text-[10px] text-neutral-400 block">HOTSPOTS</span>
             <span className="text-lg font-bold text-cyan-300">{currentLevelData.diseaseHotspots} Active</span>
           </div>
-          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/20 text-center min-w-[120px]">
+          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/20 text-center min-w-[110px]">
             <span className="text-[10px] text-neutral-400 block">SENTINEL-2 NDVI</span>
             <span className="text-lg font-bold text-amber-300">{currentLevelData.activeNDVI}</span>
           </div>
         </div>
       </div>
 
-      {/* FEATURE 6: FARMER -> FPO -> GOVERNMENT MULTI-TIER NETWORK */}
+      {/* FEATURE 21: FARMER -> FPO -> DISTRICT ALERT NETWORK (4-Stage Public Good Workflow) */}
       <div className="glass-panel rounded-3xl p-6 sm:p-8 border border-cyan-500/30 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 mb-1">
               <Share2 className="w-4 h-4 text-cyan-400" />
-              <span>FEATURE 06 &bull; DIGITAL PUBLIC GOOD MULTI-TIER AGGREGATION</span>
+              <span className="font-bold">FEATURE 21: EARLY WARNING ALERT NETWORK</span>
             </div>
             <h3 className="font-display font-extrabold text-2xl text-[#F9F8F3]">
-              Farmer &rarr; FPO &rarr; Government Network
+              Farmer &rarr; Nearby Farms &rarr; Village/FPO &rarr; District Agriculture View
             </h3>
           </div>
-          <div className="px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono text-cyan-300">
-            District Scale Intelligence
+          <div className="px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-500/30 text-xs font-mono text-cyan-300 font-bold">
+            ANONYMOUS AGGREGATE
           </div>
         </div>
 
-        {/* Visual Architecture Flow */}
+        {/* 4-Stage Progressive Workflow Grid */}
         <div className="p-6 rounded-2xl bg-black/60 border border-white/10 space-y-6 font-mono text-xs">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-            {/* Step 1: Farmer */}
-            <div className="p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center font-bold text-sm">
-                🧑🌾
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-center">
+            {/* Stage 1: One Farm */}
+            <div className="p-4 rounded-xl bg-black/50 border border-white/10 space-y-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center font-bold text-xs">
+                1
               </div>
-              <div className="font-bold text-[#ECE8DD] text-sm">340 FARMERS</div>
+              <div className="font-bold text-white text-xs">ONE FARM</div>
               <p className="text-[11px] text-neutral-400 font-sans">
-                Experiencing similar root-zone water stress across 4 neighboring villages.
+                Leaf scan confirms Yellow Stripe Rust on flag leaf. Identity hashed.
               </p>
-              <div className="text-[10px] text-emerald-400 font-bold">IoT & Satellite Telemetry Ingested</div>
+              <div className="text-[9px] text-emerald-300 bg-emerald-950/50 p-1.5 rounded border border-emerald-500/30">
+                Single Anonymized Signal
+              </div>
             </div>
 
-            {/* Step 2: FPO */}
-            <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 space-y-2">
-              <div className="w-10 h-10 rounded-full bg-cyan-500/20 text-cyan-400 mx-auto flex items-center justify-center font-bold text-sm">
-                🏢
+            {/* Stage 2: Nearby Farms */}
+            <div className="p-4 rounded-xl bg-black/50 border border-white/10 space-y-2">
+              <div className="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 mx-auto flex items-center justify-center font-bold text-xs">
+                2
               </div>
-              <div className="font-bold text-[#ECE8DD] text-sm">PRATAPGARH FPO HUB</div>
+              <div className="font-bold text-white text-xs">NEARBY FARMS</div>
               <p className="text-[11px] text-neutral-400 font-sans">
-                AgriN aggregates individual farm stress signals into a verified micro-cluster.
+                8 similar pathology signals identified within a 4km micro-climatic radius.
               </p>
-              <div className="text-[10px] text-cyan-400 font-bold">Hotspot Detected Across 4 Villages</div>
+              <div className="text-[9px] text-cyan-300 bg-cyan-950/50 p-1.5 rounded border border-cyan-500/30">
+                8 Correlated Signals
+              </div>
             </div>
 
-            {/* Step 3: Agriculture Dept */}
-            <div className="p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2">
-              <div className="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center font-bold text-sm">
-                🏛
+            {/* Stage 3: Village / FPO */}
+            <div className="p-4 rounded-xl bg-black/50 border border-amber-500/30 space-y-2">
+              <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center font-bold text-xs">
+                3
               </div>
-              <div className="font-bold text-[#ECE8DD] text-sm">AGRICULTURE DEPT.</div>
+              <div className="font-bold text-white text-xs">VILLAGE / FPO HUB</div>
               <p className="text-[11px] text-neutral-400 font-sans">
-                District officer receives automated priority canal discharge authorization.
+                Potential epidemic cluster flagged. Automated bio-fungicide batch dispatch initiated.
               </p>
-              <div className="text-[10px] text-amber-300 font-bold">Canal Gate Release Triggered</div>
+              <div className="text-[9px] text-amber-300 bg-amber-950/50 p-1.5 rounded border border-amber-500/30">
+                Micro-Cluster Formed
+              </div>
+            </div>
+
+            {/* Stage 4: District Agriculture View */}
+            <div className="p-4 rounded-xl bg-black/50 border border-rose-500/30 space-y-2">
+              <div className="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center font-bold text-xs">
+                4
+              </div>
+              <div className="font-bold text-white text-xs">DISTRICT AGRI VIEW</div>
+              <p className="text-[11px] text-neutral-400 font-sans">
+                District Agriculture Officer issues regional yellow rust alert to Tehsil KVK agronomists.
+              </p>
+              <div className="text-[9px] text-rose-300 bg-rose-950/50 p-1.5 rounded border border-rose-500/30">
+                Regional Warning Issued
+              </div>
             </div>
           </div>
 
-          {/* District Insight Banner */}
-          <div className="p-4 rounded-xl bg-cyan-950/40 border border-cyan-500/40 flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
+          {/* Privacy Guarantee Banner */}
+          <div className="p-3.5 rounded-xl bg-cyan-950/40 border border-cyan-500/40 flex items-start gap-3">
+            <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
             <div className="text-xs">
-              <span className="font-bold text-cyan-200 block mb-0.5">
-                REAL-TIME DISTRICT ACTION OUTCOME:
+              <span className="font-bold text-cyan-200 block mb-0.5 font-mono">
+                PUBLIC DIGITAL INFRASTRUCTURE PRIVACY GUARANTEE:
               </span>
-              <p className="text-neutral-300 leading-relaxed font-sans">
-                &ldquo;Water-stress hotspot detected across 4 villages. AgriN aggregated anonymized farmer telemetry and dispatched an automated priority alert to the District Irrigation Officer. Canal discharge scheduled for 06:00 AM tomorrow.&rdquo;
+              <p className="text-neutral-300 leading-relaxed font-sans text-xs">
+                No individual farmer name, mobile number, or survey parcel boundary is ever exposed to the district dashboard. All early warning signals are pooled into anonymized geographic aggregates.
               </p>
             </div>
           </div>
